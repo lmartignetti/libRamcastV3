@@ -36,9 +36,12 @@ public class RamcastEndpoint extends RdmaEndpoint {
     private RamcastNode node;
 
     // indicate if this endpoint is ready (connected, exchanged data)
-    private boolean hasExchangedClientData=false;
-    private boolean hasExchangedServerData=false;
+    private boolean hasExchangedClientData = false;
+    private boolean hasExchangedServerData = false;
 
+    IbvMr remoteHeadMr;
+    IbvMr sharedCircularMr;
+    IbvMr sharedTimestampMr;
 
     protected RamcastEndpoint(RdmaEndpointGroup<? extends RamcastEndpoint> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
         super(group, idPriv, serverSide);
@@ -85,6 +88,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
         if (postSend != null) {
             buffer.clear();
             int index = (int) postSend.getWrMod(0).getWr_id();
+            verbCalls.sendBufs[index].clear();
             verbCalls.sendBufs[index].put(buffer);
             logger.trace("[{}/{}] sendBuff -- capacity:{} / limit:{} / remaining: {}", this.endpointId, index, verbCalls.sendBufs[index].capacity(), verbCalls.sendBufs[index].limit(), verbCalls.sendBufs[index].remaining());
             postSend.getWrMod(0).getSgeMod(0).setLength(buffer.capacity());
@@ -128,6 +132,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
 
     private void dispatchSendCompletion(ByteBuffer buffer) {
         logger.debug("RECEIVE dispatchSendCompletion of buffer [{} {} {}]", buffer.getInt(0), buffer.getInt(4), buffer.getInt(8));
+        ((RamcastEndpointGroup) this.group).handleSendComplete(this, buffer);
     }
 
     private void dispatchReceive(ByteBuffer buffer) throws IOException {
@@ -135,7 +140,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
         if (buffer.getInt(0) < 0) {
             ((RamcastEndpointGroup) this.group).handleProtocolMessage(this, buffer);
         } else {
-            ((RamcastEndpointGroup) this.group).handleMessage(this, buffer);
+            ((RamcastEndpointGroup) this.group).handleReceive(this, buffer);
         }
     }
 
@@ -215,5 +220,11 @@ public class RamcastEndpoint extends RdmaEndpoint {
 
     public void setHasExchangedServerData(boolean hasExchangedServerData) {
         this.hasExchangedServerData = hasExchangedServerData;
+    }
+
+    @Override
+    public synchronized void close() throws IOException, InterruptedException {
+        super.close();
+        this.verbCalls.close();
     }
 }

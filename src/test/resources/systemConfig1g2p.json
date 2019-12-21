@@ -20,7 +20,7 @@
     }
   ],
   "signalInterval": 5,
-  "queueLength": 5,
+  "queueLength": 100,
   "polling": true,
   "debug": true
 }

@@ -5,7 +5,6 @@ import com.ibm.disni.RdmaCqProcessor;
 import com.ibm.disni.RdmaCqProvider;
 import com.ibm.disni.RdmaEndpointFactory;
 import com.ibm.disni.RdmaEndpointGroup;
-import com.ibm.disni.util.MemoryUtils;
 import com.ibm.disni.verbs.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,9 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     // shared memory for receiving timestamp from leaders
     private ByteBuffer sharedTimestampBuffer;
 
-    HandshakingProcessor handshakingProcessor;
+    private HandshakingProcessor handshakingProcessor;
+
+    private CustomCallback customCallback;
 
 
     public RamcastEndpointGroup(RamcastAgent agent, int timeout) throws IOException {
@@ -114,11 +115,24 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         }
     }
 
-    public void handleMessage(RamcastEndpoint endpoint, ByteBuffer buffer) {
+    public void handleReceive(RamcastEndpoint endpoint, ByteBuffer buffer) {
+        if (customCallback != null) customCallback.call(buffer);
+    }
+
+    public void handleSendComplete(RamcastEndpoint endpoint, ByteBuffer buffer) {
+        if (customCallback != null) customCallback.call(buffer);
     }
 
     public void initHandshaking(RamcastEndpoint endpoint) throws IOException {
         this.handshakingProcessor.initHandshaking(endpoint);
+    }
+
+    public void close() throws IOException, InterruptedException {
+        super.close();
+        for (RamcastCqProcessor<RamcastEndpoint> cq : cqMap.values()) {
+            cq.close();
+        }
+        logger.info("rpc group down");
     }
 
     public static class RamcastEndpointFactory implements RdmaEndpointFactory<RamcastEndpoint> {
@@ -162,6 +176,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         return sharedTimestampBuffer;
     }
 
-
+    public void setCustomCallback(CustomCallback customCallback) {
+        this.customCallback = customCallback;
+    }
 }
 

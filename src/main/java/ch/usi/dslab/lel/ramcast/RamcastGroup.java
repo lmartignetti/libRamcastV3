@@ -3,16 +3,18 @@ package ch.usi.dslab.lel.ramcast;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class RamcastGroup {
     static ArrayList<RamcastGroup> groupList;
-    static HashMap<Integer, RamcastGroup> groupMap;
+    static Map<Integer, RamcastGroup> groupMap;
 
 
     static {
         groupList = new ArrayList<>();
-        groupMap = new HashMap<>();
+        groupMap = new ConcurrentHashMap<>();
     }
 
     int groupId;

@@ -78,9 +78,8 @@ public class RamcastAgent {
             if (this.endpointMap.values().stream().map(RamcastEndpoint::isReady).reduce(Boolean::logicalAnd).get())
                 break;
         }
-//        while (this.endpointMap.keySet().size() != config.getTotalNodeCount() - 1 && this.endpointMap.values())
-//            Thread.sleep(10);
-        logger.debug("EndpointMap: Key:{} Vlue {}", this.endpointMap.keySet(), this.endpointMap.values());
+
+        logger.debug("Agent of node {} is ready. EndpointMap: Key:{} Vlue {}", this.node, this.endpointMap.keySet(), this.endpointMap.values());
     }
 
     public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
@@ -108,5 +107,14 @@ public class RamcastAgent {
         return "RamcastAgent{" +
                 "node=" + node +
                 '}';
+    }
+
+    public void close() throws IOException, InterruptedException {
+
+        this.serverEp.close();
+        for (RamcastEndpoint endpoint : endpointMap.values()) {
+            endpoint.close();
+        }
+        this.endpointGroup.close();
     }
 }

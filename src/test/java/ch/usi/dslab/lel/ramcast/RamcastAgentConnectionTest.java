@@ -1,28 +1,31 @@
 package ch.usi.dslab.lel.ramcast;
 
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class RamcastAgentConnectionTest {
-    RamcastConfig config = RamcastConfig.getInstance();
-    ByteBuffer buffer;
-    private static boolean setUpIsDone = false;
+    static RamcastConfig config = RamcastConfig.getInstance();
+    static ByteBuffer buffer;
+    static boolean setUpIsDone = false;
 
-    private static int groups = 2;
-    private static int nodes = 3;
-    private Map<RamcastNode, RamcastAgent> agents;
-    private List<Thread> threads;
+    static int groups = 1;
+    static int nodes = 2;
+    static Map<RamcastNode, RamcastAgent> agents;
+    static List<Thread> threads;
 
-    @Before
-    public void setUp() throws Exception {
+    @BeforeAll
+    public static void setUp() throws Exception {
         if (setUpIsDone) {
             return;
         }
@@ -55,13 +58,23 @@ public class RamcastAgentConnectionTest {
         for (Thread t : threads) {
             t.join();
         }
+        setUpIsDone = true;
+    }
+
+    @AfterAll
+    public static void tearDown() throws IOException, InterruptedException {
+        System.out.println("Tearing Down");
+        for (RamcastAgent agent : agents.values()) {
+            agent.close();
+        }
+//        Thread.sleep(1000);
     }
 
     @Test
     public void testConnections() {
         // checking connection count
         for (RamcastAgent agent : agents.values()) {
-            Assert.assertEquals(groups * nodes - 1, agent.getEndpointMap().keySet().size());
+            assertEquals(groups * nodes - 1, agent.getEndpointMap().keySet().size());
         }
 
         //checking exchanged data
@@ -77,9 +90,9 @@ public class RamcastAgentConnectionTest {
 //                System.out.println("Current agent memory:" + remoteEndpoint.getSharedCircularBlock());
 //                System.out.println("Remote agent:" + remoteAgent.getEndpointMap().get(agent.getNode()));
 //                System.out.println("Remote agent:" + remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedCircularBlock());
-                Assert.assertEquals(remoteEndpoint.getSharedCircularBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedCircularBlock());
-                Assert.assertEquals(remoteEndpoint.getSharedTimestampBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedTimeStampBlock());
-                Assert.assertEquals(remoteEndpoint.getServerHeadBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getClientBlockOfServerHead());
+                assertEquals(remoteEndpoint.getSharedCircularBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedCircularBlock());
+                assertEquals(remoteEndpoint.getSharedTimestampBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedTimeStampBlock());
+                assertEquals(remoteEndpoint.getServerHeadBlock(), remoteAgent.getEndpointMap().get(agent.getNode()).getClientBlockOfServerHead());
 
             }
         }

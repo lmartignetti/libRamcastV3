@@ -208,4 +208,8 @@ public class RamcastEndpointVerbCall {
         recvCall[index].execute();
     }
 
+    public void close() {
+        dataMr.close();
+    }
+
 }

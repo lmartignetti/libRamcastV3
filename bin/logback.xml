@@ -28,6 +28,10 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
+    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="error" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
     <root level="debug">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>
