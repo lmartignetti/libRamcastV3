@@ -5,116 +5,116 @@ import java.util.HashMap;
 
 public class RamcastNode {
 
-    static HashMap<Integer, RamcastGroup> shadowGroupMap = new HashMap<>(); // keep nodes thatt are not servers
-    ;
-    private int nodeId;
-    private int groupId;
-    private int clientId;
-    private String address;
-    private int port;
-    private boolean isLeader = false;
-    private boolean isClient = false;
-    private int roleId;
-    private InetSocketAddress inetAddress;
+  static HashMap<Integer, RamcastGroup> shadowGroupMap =
+      new HashMap<>(); // keep nodes thatt are not servers
+  private int nodeId;
+  private int groupId;
+  private int clientId;
+  private String address;
+  private int port;
+  private boolean isLeader = false;
+  private boolean isClient = false;
+  private int roleId;
+  private InetSocketAddress inetAddress;
 
-    public RamcastNode(String address, int port, int groupId, int nodeId, int roleId) {
-        this.nodeId = nodeId;
-        this.groupId = groupId;
-        this.address = address;
-        this.port = port;
-        this.roleId = roleId;
+  public RamcastNode(String address, int port, int groupId, int nodeId, int roleId) {
+    this.nodeId = nodeId;
+    this.groupId = groupId;
+    this.address = address;
+    this.port = port;
+    this.roleId = roleId;
+  }
+
+  public static RamcastNode getNode(int groupId, int nodeId) {
+    RamcastGroup g = RamcastGroup.groupMap.get(groupId);
+    if (g == null) {
+      return null;
     }
+    return g.getNode(nodeId);
+  }
 
-    public static RamcastNode getNode(int groupId, int nodeId) {
-        RamcastGroup g = RamcastGroup.groupMap.get(groupId);
-        if (g == null) {
-            return null;
-        }
-        return g.getNode(nodeId);
-    }
+  public InetSocketAddress getInetAddress() {
+    if (this.inetAddress == null) this.inetAddress = new InetSocketAddress(address, port);
+    return this.inetAddress;
+  }
 
-    public InetSocketAddress getInetAddress() {
-        if (this.inetAddress == null) this.inetAddress = new InetSocketAddress(address, port);
-        return this.inetAddress;
-    }
+  public int getClientId() {
+    return clientId;
+  }
 
+  public void setClientId(int clientId) {
+    this.clientId = clientId;
+  }
 
-    public int getClientId() {
-        return clientId;
-    }
+  public boolean hasClientRole() {
+    return roleId == RamcastConfig.ROLE_BOTH || roleId == RamcastConfig.ROLE_CLIENT;
+  }
 
-    public void setClientId(int clientId) {
-        this.clientId = clientId;
-    }
+  public boolean hasServerRole() {
+    return roleId == RamcastConfig.ROLE_BOTH || roleId == RamcastConfig.ROLE_SERVER;
+  }
 
-    public boolean hasClientRole() {
-        return roleId == RamcastConfig.ROLE_BOTH || roleId == RamcastConfig.ROLE_CLIENT;
-    }
+  public void setClient(boolean client) {
+    isClient = client;
+  }
 
-    public boolean hasServerRole() {
-        return roleId == RamcastConfig.ROLE_BOTH || roleId == RamcastConfig.ROLE_SERVER;
-    }
+  public boolean isLeader() {
+    return isLeader;
+  }
 
-    public void setClient(boolean client) {
-        isClient = client;
-    }
+  public void setLeader(boolean leader) {
+    isLeader = leader;
+    if (isLeader) this.getGroup().setLeader(this);
+  }
 
-    public boolean isLeader() {
-        return isLeader;
-    }
+  //    public boolean isLeader(RamcastMessage msg) {
+  //        return RamcastConfig.ROTATING_LEADER ? msg.getLeaderNodeId() == this.nodeId :
+  // this.isLeader;
+  //    }
 
-    public void setLeader(boolean leader) {
-        isLeader = leader;
-        if (isLeader) this.getGroup().setLeader(this);
-    }
+  public int getNodeId() {
+    return this.nodeId;
+  }
 
-//    public boolean isLeader(RamcastMessage msg) {
-//        return RamcastConfig.ROTATING_LEADER ? msg.getLeaderNodeId() == this.nodeId : this.isLeader;
-//    }
+  public int getGroupId() {
+    return groupId;
+  }
 
-    public int getNodeId() {
-        return this.nodeId;
-    }
+  public String getAddress() {
+    return address;
+  }
 
-    public int getGroupId() {
-        return groupId;
-    }
+  public int getPort() {
+    return port;
+  }
 
-    public String getAddress() {
-        return address;
-    }
+  public String toString() {
+    return "[node " + this.groupId + "/" + this.nodeId + "]";
+  }
 
-    public int getPort() {
-        return port;
-    }
+  public RamcastGroup getGroup() {
+    return RamcastGroup.groupMap.get(this.groupId);
+  }
 
-    public String toString() {
-        return "[node " + this.groupId + "/" + this.nodeId + "]";
-    }
+  public int getOrderId() {
+    return this.groupId * RamcastConfig.getInstance().getNodePerGroup() + this.nodeId;
+  }
 
-    public RamcastGroup getGroup() {
-        return RamcastGroup.groupMap.get(this.groupId);
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
 
-    public int getOrderId() {
-        return this.groupId * RamcastConfig.getInstance().getNodePerGroup() + this.nodeId;
-    }
+    RamcastNode that = (RamcastNode) o;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    if (nodeId != that.nodeId) return false;
+    return groupId == that.groupId;
+  }
 
-        RamcastNode that = (RamcastNode) o;
-
-        if (nodeId != that.nodeId) return false;
-        return groupId == that.groupId;
-    }
-
-    @Override
-    public int hashCode() {
-        int result = nodeId;
-        result = 31 * result + groupId;
-        return result;
-    }
+  @Override
+  public int hashCode() {
+    int result = nodeId;
+    result = 31 * result + groupId;
+    return result;
+  }
 }

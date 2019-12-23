@@ -8,91 +8,93 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class RamcastGroup {
-    static ArrayList<RamcastGroup> groupList;
-    static Map<Integer, RamcastGroup> groupMap;
+  static ArrayList<RamcastGroup> groupList;
+  static Map<Integer, RamcastGroup> groupMap;
 
+  static {
+    groupList = new ArrayList<>();
+    groupMap = new ConcurrentHashMap<>();
+  }
 
-    static {
-        groupList = new ArrayList<>();
-        groupMap = new ConcurrentHashMap<>();
+  int groupId;
+  private HashMap<Integer, RamcastNode> nodeMap;
+  private boolean isShadow;
+  private RamcastNode leader;
+
+  public RamcastGroup(int groupId) {
+    this.groupId = groupId;
+    groupList.add(this);
+    this.nodeMap = new HashMap<>();
+  }
+
+  public static int getGroupCount() {
+    return groupList.size();
+  }
+
+  public static RamcastGroup getOrCreateGroup(int id) {
+    RamcastGroup g = groupMap.get(id);
+    if (g == null) {
+      g = new RamcastGroup(id);
+      groupMap.put(id, g);
     }
+    return g;
+  }
 
-    int groupId;
-    private HashMap<Integer, RamcastNode> nodeMap;
-    private boolean isShadow;
-    private RamcastNode leader;
+  public static RamcastGroup getGroup(int id) throws RuntimeException {
+    RamcastGroup g = groupMap.get(id);
+    assert g != null;
+    return g;
+  }
 
-    public RamcastGroup(int groupId) {
-        this.groupId = groupId;
-        groupList.add(this);
-        this.nodeMap = new HashMap<>();
+  public static List<RamcastNode> getAllNodes() {
+    return groupList.stream()
+        .map(RamcastGroup::getMembers)
+        .flatMap(List::stream)
+        .collect(Collectors.toList());
+  }
 
-    }
+  public RamcastNode getNode(int nodeId) {
+    return nodeMap.get(nodeId);
+  }
 
-    public static int getGroupCount() {
-        return groupList.size();
-    }
+  public void addNode(RamcastNode node) {
+    nodeMap.put(node.getNodeId(), node);
+  }
 
-    public static RamcastGroup getOrCreateGroup(int id) {
-        RamcastGroup g = groupMap.get(id);
-        if (g == null) {
-            g = new RamcastGroup(id);
-            groupMap.put(id, g);
-        }
-        return g;
-    }
+  public void removeNode(RamcastNode node) {
+    nodeMap.remove(node.getNodeId());
+  }
 
-    public static RamcastGroup getGroup(int id) throws RuntimeException {
-        RamcastGroup g = groupMap.get(id);
-        assert g != null;
-        return g;
-    }
+  public static int getTotalNodeCount() {
+    return groupList.stream().mapToInt(RamcastGroup::getNodeCount).sum();
+  }
 
-    public static List<RamcastNode> getAllNodes() {
-        return groupList.stream().map(RamcastGroup::getMembers).flatMap(List::stream).collect(Collectors.toList());
-    }
+  public int getNodeCount() {
+    return nodeMap.keySet().size();
+  }
 
-    public RamcastNode getNode(int nodeId) {
-        return nodeMap.get(nodeId);
-    }
+  //    public List<Integer> getMembers() {
+  //        return nodeMap.entrySet().stream().map(entry ->
+  // entry.getValue().getNodeId()).collect(Collectors.toList());
+  //    }
+  public List<RamcastNode> getMembers() {
+    return new ArrayList<>(nodeMap.values());
+  }
 
-    public void addNode(RamcastNode node) {
-        nodeMap.put(node.getNodeId(), node);
-    }
+  public int getId() {
+    return groupId;
+  }
 
-    public void removeNode(RamcastNode node) {
-        nodeMap.remove(node.getNodeId());
-    }
+  public RamcastNode getLeader() {
+    return this.leader;
+  }
 
-    public static int getTotalNodeCount() {
-        return groupList.stream().mapToInt(RamcastGroup::getNodeCount).sum();
-    }
+  public void setLeader(RamcastNode leader) {
+    this.leader = leader;
+  }
 
-    public int getNodeCount() {
-        return nodeMap.keySet().size();
-    }
-
-    //    public List<Integer> getMembers() {
-//        return nodeMap.entrySet().stream().map(entry -> entry.getValue().getNodeId()).collect(Collectors.toList());
-//    }
-    public List<RamcastNode> getMembers() {
-        return new ArrayList<>(nodeMap.values());
-    }
-
-    public int getId() {
-        return groupId;
-    }
-
-    public RamcastNode getLeader() {
-        return this.leader;
-    }
-
-    public void setLeader(RamcastNode leader) {
-        this.leader = leader;
-    }
-
-    @Override
-    public String toString() {
-        return "[group " + this.groupId + "]";
-    }
+  @Override
+  public String toString() {
+    return "[group " + this.groupId + "]";
+  }
 }

@@ -19,7 +19,7 @@
       "nid": 1
     }
   ],
-  "signalInterval": 5,
+  "signalInterval": 2,
   "queueLength": 100,
   "polling": true,
   "debug": true
