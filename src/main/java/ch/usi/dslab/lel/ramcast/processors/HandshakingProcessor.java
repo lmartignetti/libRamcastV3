@@ -2,16 +2,19 @@ package ch.usi.dslab.lel.ramcast.processors;
 
 import ch.usi.dslab.lel.ramcast.RamcastAgent;
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
-import ch.usi.dslab.lel.ramcast.RamcastMemoryBlock;
-import ch.usi.dslab.lel.ramcast.RamcastNode;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpointGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import com.ibm.disni.util.MemoryUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 public class HandshakingProcessor {
   private static final Logger logger = LoggerFactory.getLogger(HandshakingProcessor.class);
@@ -25,7 +28,7 @@ public class HandshakingProcessor {
 
   public void initHandshaking(RamcastEndpoint endpoint) throws IOException {
     logger.debug("Init handshaking for endpoint {}", endpoint);
-    RamcastMemoryBlock block = endpoint.getServerHeadBlock();
+    RamcastMemoryBlock block = endpoint.getSharedServerHeadBlock();
     ByteBuffer buffer = ByteBuffer.allocateDirect(28);
     buffer.putInt(RamcastConfig.MSG_HS_C1);
     buffer.putInt(this.agent.getNode().getGroupId());
@@ -67,18 +70,19 @@ public class HandshakingProcessor {
           buffer.getLong(12), buffer.getInt(20), buffer.getInt(24));
       logger.debug(
           "[HS] Step 1 SERVER setClientMemoryBlockOfRemoteHead={}",
-          endpoint.getClientBlockOfServerHead());
+          endpoint.getRemoteServerHeadBlock());
       // send back to client data of the whole shared memory space
       RamcastMemoryBlock sharedCircularMemoryBlock = endpoint.getSharedCircularBlock();
-      RamcastMemoryBlock sharedTimestampMemoryBlock = endpoint.getSharedTimestampBlock();
+      //      RamcastMemoryBlock sharedTimestampMemoryBlock = endpoint.getSharedTimestampBlock();
       RamcastMemoryBlock memorySegmentBlock =
           getNodeMemorySegmentBlock(
               group.getSharedCircularBuffer(),
               endpoint.getSharedCircularBlock().getLkey(),
               groupId,
               nodeId);
+      endpoint.setSharedCellBlock(memorySegmentBlock);
       memorySegmentBlock.setEndpoint(endpoint);
-      group.getEndpointMemorySegmentMap().put(endpoint, memorySegmentBlock);
+      //      group.getEndpointMemorySegmentMap().put(endpoint, memorySegmentBlock);
 
       // preparing response
       ByteBuffer response = ByteBuffer.allocateDirect(52);
@@ -92,20 +96,27 @@ public class HandshakingProcessor {
       response.putInt(memorySegmentBlock.getLkey());
       response.putInt(memorySegmentBlock.getCapacity());
 
-      response.putLong(sharedTimestampMemoryBlock.getAddress());
-      response.putInt(sharedTimestampMemoryBlock.getLkey());
-      response.putInt(sharedTimestampMemoryBlock.getCapacity());
+      //      response.putLong(sharedTimestampMemoryBlock.getAddress());
+      //      response.putInt(sharedTimestampMemoryBlock.getLkey());
+      //      response.putInt(sharedTimestampMemoryBlock.getCapacity());
 
       logger.debug(
-          "[HS] Step 1 SERVER Sending: sharedCircularMemoryBlock={} memorySegmentBlock={} sharedTimestampMemoryBlock={}",
+          "[HS] Step 1 SERVER Sending: sharedCircularMemoryBlock={} memorySegmentBlock={}",
           sharedCircularMemoryBlock,
-          memorySegmentBlock,
-          sharedTimestampMemoryBlock);
+          memorySegmentBlock);
 
       endpoint.send(response);
       endpoint.setHasExchangedServerData(true);
-      this.group.getEndpointMap().put(node, endpoint);
+//      System.out.println(this.group.getEndpointMap());
+      this.group.getEndpointMap().putIfAbsent(node, endpoint);
 
+      List<RamcastEndpoint> eps = this.group.getGroupEndpointsMap().get(groupId);
+      if (eps == null) eps = new ArrayList<>();
+      eps.add(endpoint);
+      eps.sort(Comparator.comparingInt(ep -> ep.getNode().getNodeId()));
+      this.group.getGroupEndpointsMap().put(groupId, eps);
+
+//      if (endpoint.getNode().equals(this.agent.getNode()))endpoint.setHasExchangedClientData(true);
       if (!endpoint.hasExchangedClientData()) this.initHandshaking(endpoint);
     } else if (ticket == RamcastConfig.MSG_HS_S1) { // msg step 1 sent from server
       logger.debug(
@@ -120,18 +131,33 @@ public class HandshakingProcessor {
       endpoint.setRemoteSharedMemoryBlock(buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
       endpoint.setRemoteSharedMemoryCellBlock(
           buffer.getLong(20), buffer.getInt(28), buffer.getInt(32));
-      endpoint.setRemoteSharedTimestampMemoryBlock(
-          buffer.getLong(36), buffer.getInt(44), buffer.getInt(48));
       logger.debug(
-          "[HS] Step 1 CLIENT. setRemoteSharedMemoryBlock={}",
-          endpoint.getRemoteSharedCircularBlock());
+          "[HS] Step 1 CLIENT. setRemoteSharedMemoryBlock={}", endpoint.getRemoteCircularBlock());
       logger.debug(
           "[HS] Step 1 CLIENT. setRemoteSharedMemoryCellBlock={}",
           endpoint.getRemoteSharedMemoryCellBlock());
+
       endpoint.setHasExchangedClientData(true);
+//      if (endpoint.getNode().equals(this.agent.getNode()))endpoint.setHasExchangedServerData(true);
+
     } else {
       throw new IOException("Protocol msg code not found :" + ticket);
     }
+  }
+
+  public void requestWritePermission(RamcastEndpoint endpoint, int ballotNumber)
+      throws IOException {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16);
+    buffer.putInt(RamcastConfig.MSG_HS_C_GET_WRITE);
+    buffer.putInt(this.agent.getNode().getGroupId());
+    buffer.putInt(this.agent.getNode().getNodeId());
+    buffer.putInt(ballotNumber);
+    logger.debug(
+        "[HS] Step Request Write permission CLIENT Sending: [{}/{}], ballot={}",
+        buffer.getInt(4),
+        buffer.getInt(8),
+        buffer.getInt(12));
+    endpoint.send(buffer);
   }
 
   public RamcastMemoryBlock getNodeMemorySegmentBlock(
@@ -143,8 +169,6 @@ public class HandshakingProcessor {
     sharedBuffer.position(pos);
     sharedBuffer.limit(pos + blockSize);
     ByteBuffer buffer = sharedBuffer.slice();
-    RamcastMemoryBlock ret = new RamcastMemoryBlock();
-    ret.update(MemoryUtils.getAddress(buffer), lkey, buffer.capacity(), buffer);
-    return ret;
+    return new RamcastMemoryBlock(MemoryUtils.getAddress(buffer), lkey, buffer.capacity(), buffer);
   }
 }

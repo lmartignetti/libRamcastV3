@@ -1,10 +1,13 @@
-package ch.usi.dslab.lel.ramcast;
+package ch.usi.dslab.lel.ramcast.models;
 
+import ch.usi.dslab.lel.ramcast.RamcastConfig;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class RamcastMemoryBlock {
   protected static final Logger logger = LoggerFactory.getLogger(RamcastMemoryBlock.class);
@@ -15,11 +18,12 @@ public class RamcastMemoryBlock {
   private int headOffset;
   private int tailOffset;
   private RamcastEndpoint endpoint;
-  private RamcastMemoryBlock _origin;
+
+  private Set<Integer> freeableSlots;
 
   private boolean tailPassedHead = false;
 
-  public RamcastMemoryBlock() {}
+  private RamcastMemoryBlock() {}
 
   public RamcastMemoryBlock(long address, int lkey, int capacity, ByteBuffer buffer) {
     this.address = address;
@@ -28,16 +32,17 @@ public class RamcastMemoryBlock {
     this.headOffset = 0;
     this.tailOffset = 0;
     this.buffer = buffer;
+    this.freeableSlots = new TreeSet<>();
   }
 
-  public void update(long address, int lkey, int length, ByteBuffer buffer) {
-    this.address = address;
-    this.lkey = lkey;
-    this.capacity = length;
-    this.headOffset = 0;
-    this.tailOffset = 0;
-    this.buffer = buffer;
-  }
+  //  public void update(long address, int lkey, int length, ByteBuffer buffer) {
+  //    this.address = address;
+  //    this.lkey = lkey;
+  //    this.capacity = length;
+  //    this.headOffset = 0;
+  //    this.tailOffset = 0;
+  //    this.buffer = buffer;
+  //  }
 
   @Override
   public int hashCode() {
@@ -55,14 +60,29 @@ public class RamcastMemoryBlock {
     RamcastMemoryBlock that = (RamcastMemoryBlock) o;
 
     if (address != that.address) return false;
-    if (lkey != that.lkey) return false;
-    return capacity == that.capacity;
+    return lkey == that.lkey;
   }
+
+  //  @Override
+  //  public String toString() {
+  //    return "RamcastMemoryBlock{"
+  //        + "address="
+  //        + address
+  //        + ", lkey="
+  //        + lkey
+  //        + ", capacity="
+  //        + capacity
+  //        + '}';
+  //  }
 
   @Override
   public String toString() {
-    return "RamcastMemoryBlock{"
-        + "address="
+    return "Mem{"
+        + "head="
+        + headOffset
+        + ", tail="
+        + tailOffset
+        + ", address="
         + address
         + ", lkey="
         + lkey
@@ -108,12 +128,15 @@ public class RamcastMemoryBlock {
     block.tailOffset = this.tailOffset;
     block.buffer = this.buffer;
     block.endpoint = this.endpoint;
-    block._origin = this;
     return block;
   }
 
   public long getTail() {
     return address + tailOffset * RamcastConfig.SIZE_MESSAGE;
+  }
+
+  public void advanceTail() {
+    moveTailOffset(1);
   }
 
   public void moveTailOffset(int slots) {
@@ -131,6 +154,10 @@ public class RamcastMemoryBlock {
       tailOffset = 0;
       if (!tailPassedHead) tailPassedHead = true;
     }
+  }
+
+  public void advanceHead() {
+    moveHeadOffset(1);
   }
 
   public void moveHeadOffset(int slots) {
@@ -169,9 +196,32 @@ public class RamcastMemoryBlock {
   }
 
   // free the memory slot of a message by moving the head pointer to 1 position
-  public void freeSlot(int offset) {
-    if (this.headOffset == offset) {
+  public int freeSlot(int slot) {
+    int freed = 0;
+    if (this.headOffset == slot) {
+      //      logger.debug("Freeing slot {}", slot);
       this.moveHeadOffset(1);
+      freed++;
+    } else {
+      // this slot is in the middle of head pointer and tail pointer
+      this.freeableSlots.add(slot);
     }
+    // check if we can free any slot
+    for (int s : freeableSlots) {
+      if (this.headOffset == s) {
+        //        logger.debug("Freeing slot {}", slot);
+        this.moveHeadOffset(1);
+        freed++;
+      }
+    }
+    return freed;
+  }
+
+  public long getHead() {
+    return address + headOffset * RamcastConfig.SIZE_MESSAGE;
+  }
+
+  public boolean isTailPassedHead() {
+    return tailPassedHead;
   }
 }

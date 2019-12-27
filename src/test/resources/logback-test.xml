@@ -24,14 +24,14 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast" level="error" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast" level="debug" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="error" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint" level="error" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint" level="debug" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 

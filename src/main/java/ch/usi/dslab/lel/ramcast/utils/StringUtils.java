@@ -11,4 +11,36 @@ public class StringUtils {
     checksum.update(buffer);
     return checksum.getValue();
   }
+
+  private static int getMaxLength(String... strings) {
+    int len = Integer.MIN_VALUE;
+    for (String str : strings) {
+      len = Math.max(str.length(), len);
+    }
+    return len;
+  }
+
+  private static String padString(String str, int len) {
+    StringBuilder sb = new StringBuilder(str);
+    return sb.append(fill(' ', len - str.length())).toString();
+  }
+
+  private static String fill(char ch, int len) {
+    StringBuilder sb = new StringBuilder(len);
+    for (int i = 0; i < len; i++) {
+      sb.append(ch);
+    }
+    return sb.toString();
+  }
+
+  public static String formatMessage(String... strings) {
+    String ret = "\n";
+    int maxBoxWidth = getMaxLength(strings);
+    ret += "╔" + fill('═', maxBoxWidth) + "╗\n";
+    for (String str : strings) {
+      ret += String.format("║%s║%n", padString(str, maxBoxWidth));
+    }
+    ret += "╚" + fill('═', maxBoxWidth) + "╝\n";
+    return ret;
+  }
 }

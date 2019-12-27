@@ -1,6 +1,8 @@
 package ch.usi.dslab.lel.ramcast;
 
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
+import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -16,20 +18,21 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 public class ConnectionsTest {
   static Logger logger = LoggerFactory.getLogger(ConnectionsTest.class);
   static RamcastConfig config = RamcastConfig.getInstance();
   static ByteBuffer buffer;
 
-  static int groups = 1;
-  static int nodes = 2;
+  static int groups = 2;
+  static int nodes = 3;
   static Map<RamcastNode, RamcastAgent> agents;
   static List<Thread> threads;
 
   @BeforeAll
   public static void setUp() throws Exception {
-    logger.info("Setting up");
+    logger.info("Setting up for ConnectionsTest");
     File configFile = new File("src/test/resources/systemConfig" + groups + "g" + nodes + "p.json");
     config = RamcastConfig.getInstance();
     config.loadConfig(configFile.getPath());
@@ -85,19 +88,39 @@ public class ConnectionsTest {
     // checking exchanged data
     for (RamcastAgent agent : agents.values()) {
       for (Map.Entry<RamcastNode, RamcastEndpoint> connection : agent.getEndpointMap().entrySet()) {
-        RamcastEndpoint remoteEndpoint = connection.getValue();
+        RamcastEndpoint endpoint = connection.getValue();
         RamcastNode remoteNode = connection.getKey();
         RamcastAgent remoteAgent = agents.get(remoteNode);
+//        logger.debug("Comparing of agent {} and remote agent {}", agent, remoteAgent);
         assertEquals(
-            remoteEndpoint.getSharedCircularBlock(),
-            remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedCircularBlock());
+            endpoint.getSharedCircularBlock(),
+            remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteCircularBlock());
         assertEquals(
-            remoteEndpoint.getSharedTimestampBlock(),
-            remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteSharedTimeStampBlock());
-        assertEquals(
-            remoteEndpoint.getServerHeadBlock(),
-            remoteAgent.getEndpointMap().get(agent.getNode()).getClientBlockOfServerHead());
-        assertEquals(-1, remoteEndpoint.getServerHeadBlock().getBuffer().get(0));
+            endpoint.getSharedServerHeadBlock(),
+            remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteServerHeadBlock());
+        assertEquals(-1, endpoint.getSharedServerHeadBlock().getBuffer().get(0));
+      }
+    }
+    for (int i = 0; i < groups; i++) {
+      for (int j = 0; j < nodes; j++) {
+        if (agents.get(RamcastNode.getNode(i, j)).isLeader()) {
+          for (RamcastEndpoint endpoint :
+              agents.get(RamcastNode.getNode(i, j)).getEndpointGroup().getEndpointMap().values()) {
+            RamcastMemoryBlock remoteTsBlock =
+                agents
+                    .get(endpoint.getNode())
+                    .getEndpointMap()
+                    .get(RamcastNode.getNode(i, j))
+                    .getSharedTimestampBlock();
+            RamcastMemoryBlock dataOfRemoteTsBlock = endpoint.getRemoteTimeStampBlock();
+            assertEquals(remoteTsBlock, dataOfRemoteTsBlock);
+          }
+        } else {
+          for (RamcastEndpoint endpoint :
+              agents.get(RamcastNode.getNode(i, j)).getEndpointGroup().getEndpointMap().values()) {
+            assertNull(endpoint.getRemoteTimeStampBlock());
+          }
+        }
       }
     }
   }

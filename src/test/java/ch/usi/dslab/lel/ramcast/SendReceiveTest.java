@@ -28,7 +28,7 @@ public class SendReceiveTest {
 
   @BeforeAll
   public static void setUp() throws Exception {
-    logger.info("Setting up");
+    logger.info("Setting up for SendReceiveTest");
     int groups = 1;
     int nodes = 2;
     File configFile = new File("src/test/resources/systemConfig" + groups + "g" + nodes + "p.json");
@@ -197,8 +197,8 @@ public class SendReceiveTest {
                 send.getAndIncrement();
               }
             });
-    logger.info("Going to run send-receive test for 5 seconds");
-    long end = System.currentTimeMillis() + 5 * 1000; // going to run this experiment for 20 secs
+    logger.info("Going to run send-receive test for 1 seconds");
+    long end = System.currentTimeMillis() + 1 * 1000; // going to run this experiment for 20 secs
     while (System.currentTimeMillis() < end) {
       getPermit();
       agents

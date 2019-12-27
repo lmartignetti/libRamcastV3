@@ -242,7 +242,7 @@ public class RamcastEndpointVerbCall {
   public void freeSend(int index) throws IOException {
     SVCPostSend sendOperation = pendingSendPostSend.remove(index);
     if (sendOperation == null) {
-      throw new IOException("no pending index " + index);
+      throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
     logger.trace("[{}/{}] adding back send postsend", this.endpoint.getEndpointId(), index);
     this.freeSendPostSend.add(sendOperation);
@@ -251,10 +251,23 @@ public class RamcastEndpointVerbCall {
   public void freeWrite(int index) throws IOException {
     SVCPostSend sendOperation = pendingWritePostSend.remove(index);
     if (sendOperation == null) {
-      throw new IOException("no pending index " + index);
+      throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
     logger.trace("[{}/{}] adding back write postsend", this.endpoint.getEndpointId(), index);
     this.freeWritePostSend.add(sendOperation);
+  }
+
+  public void freeUpdate(int index) throws IOException {
+//    while (pendingUpdatePostSend.size() > 0) {
+//      int i = pendingUpdatePostSend.keySet().iterator().next();
+      SVCPostSend sendOperation =
+          pendingUpdatePostSend.remove(index);
+      if (sendOperation == null) {
+        throw new IOException(this.endpoint.getNode() + " no pending index " + index);
+      }
+      logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);
+      this.freeUpdatePostSend.add(sendOperation);
+//    }
   }
 
   protected void postRecv(int index) throws IOException {

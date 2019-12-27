@@ -2,13 +2,19 @@ package ch.usi.dslab.lel.ramcast;
 
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpointGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import com.ibm.disni.RdmaServerEndpoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class RamcastAgent {
   private static final Logger logger = LoggerFactory.getLogger(RamcastAgent.class);
@@ -19,21 +25,14 @@ public class RamcastAgent {
   private RamcastNode node;
   private RdmaServerEndpoint<RamcastEndpoint> serverEp;
 
+  private RamcastNode leader;
+
   public RamcastAgent(int groupId, int nodeId) throws Exception {
     MDC.put("ROLE", groupId + "/" + nodeId);
     this.node = RamcastNode.getNode(groupId, nodeId);
-  }
 
-  private void connect(RamcastNode node) {
-    try {
-      RamcastEndpoint endpoint = endpointGroup.createEndpoint();
-      endpoint.connect(node.getInetAddress(), config.getTimeout());
-      endpoint.setNode(node);
-      endpointGroup.initHandshaking(endpoint);
-      while (!endpoint.isReady()) Thread.sleep(10);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    // temp for setting a leader;
+    this.leader = RamcastNode.getNode(groupId, 0);
   }
 
   public void establishConnections() throws Exception {
@@ -60,21 +59,27 @@ public class RamcastAgent {
     listener.setName("ConnectionListener");
     listener.start();
 
-    // trying to establish a bi-direction connection
-    // A node only connect to node with bigger ids.
-    for (RamcastNode node : RamcastGroup.getAllNodes()) {
-      if (node.getOrderId() > this.node.getOrderId()) {
-        logger.debug("connecting to: {}", node);
-        this.connect(node);
-        logger.debug(">>> Client connected to: {}. CONNECTION READY", node);
-      }
+    this.endpointGroup.connect();
+    while (true) {
+      Thread.sleep(10);
+      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()-1) continue;
+      if (this.getEndpointMap().values().stream()
+          .map(RamcastEndpoint::isReady)
+          .reduce(Boolean::logicalAnd)
+          .get()) break;
     }
+
+    if (this.isLeader()) {
+      this.endpointGroup.requestWritePermission();
+    }
+
+    this.endpointGroup.startPollingData();
 
     while (true) {
       Thread.sleep(10);
-      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount() - 1) continue;
+      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()-1) continue;
       if (this.getEndpointMap().values().stream()
-          .map(RamcastEndpoint::isReady)
+          .map(RamcastEndpoint::hasExchangedPermissionData)
           .reduce(Boolean::logicalAnd)
           .get()) break;
     }
@@ -84,8 +89,6 @@ public class RamcastAgent {
         this.node,
         this.getEndpointMap().keySet(),
         this.getEndpointMap().values());
-
-    this.endpointGroup.startPollingData();
   }
 
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
@@ -105,9 +108,67 @@ public class RamcastAgent {
     return "RamcastAgent{" + "node=" + node + '}';
   }
 
-  public void close() throws IOException, InterruptedException {
+  public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
+      throws IOException {
+    for (RamcastGroup group : destinations) {
+      for (RamcastNode node : group.getMembers()) {
+        this.endpointGroup.writeMessage(node, message.toBuffer());
+      }
+    }
+  }
 
+  public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
+    int[] groups = new int[destinations.size()];
+    destinations.forEach(group -> groups[destinations.indexOf(group)] = group.getId());
+    RamcastMessage message = new RamcastMessage(buffer, groups);
+    int msgId = Objects.hash(this.node.getOrderId());
+    message.setId(msgId);
+    short[] slots = getRemoteSlots(destinations);
+    while (slots == null) {
+      Thread.yield();
+      slots = getRemoteSlots(destinations);
+    }
+    message.setSlots(slots);
+    return message;
+  }
+
+  private short[] getRemoteSlots(List<RamcastGroup> destinations) {
+    short[] ret = new short[destinations.size()];
+    int i = 0;
+    for (RamcastGroup group : destinations) {
+      int tail = -1;
+      int available = 0;
+      List<RamcastEndpoint> eps = endpointGroup.getGroupEndpointsMap().get(group.getId());
+      for (RamcastEndpoint ep : eps) {
+        if (ep.getAvailableSlots() <= 0) return null;
+        if (tail < ep.getRemoteCellBlock().getTailOffset()
+            && (available < ep.getAvailableSlots())) {
+          tail = ep.getRemoteCellBlock().getTailOffset();
+          available = ep.getAvailableSlots();
+        }
+      }
+      ret[i++] = (short) tail;
+    }
+    return ret;
+  }
+
+  public void close() throws IOException, InterruptedException {
+    logger.info("Agent of {} is closing down", this.node);
     this.serverEp.close();
     this.endpointGroup.close();
+    RamcastGroup.close();
+  }
+
+  public void setLeader(RamcastNode node) throws IOException {
+    this.leader = node;
+    // if this is the new leader
+    if (this.leader.equals(this.node)) {
+      // need to revoke permission of old leader
+      this.getEndpointGroup().revokeTimestampWritePermission();
+    }
+  }
+
+  public boolean isLeader() {
+    return this.node.equals(leader);
   }
 }

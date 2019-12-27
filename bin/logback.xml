@@ -24,7 +24,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast" level="debug" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 

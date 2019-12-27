@@ -1,4 +1,4 @@
-package ch.usi.dslab.lel.ramcast;
+package ch.usi.dslab.lel.ramcast.models;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -96,5 +96,10 @@ public class RamcastGroup {
   @Override
   public String toString() {
     return "[group " + this.groupId + "]";
+  }
+
+  public static void close() {
+    groupList = new ArrayList<>();
+    groupMap = new ConcurrentHashMap<>();
   }
 }

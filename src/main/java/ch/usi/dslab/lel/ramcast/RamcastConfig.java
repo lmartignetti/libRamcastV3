@@ -1,5 +1,7 @@
 package ch.usi.dslab.lel.ramcast;
 
+import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -10,10 +12,10 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class RamcastConfig {
-  public static final int MSG_HS_C1 = -1;
-  public static final int MSG_HS_S1 = -11;
-  public static final int MSG_HS_C2 = -2;
-  public static final int MSG_HS_S2 = -12;
+  public static final int MSG_HS_C1 = -1; //handshake msg step 1 from client
+  public static final int MSG_HS_S1 = -2; //handshake msg step 1 from server
+  public static final int MSG_HS_C_GET_WRITE = -11; //handshake msg from client to get write permission
+  public static final int MSG_HS_S_GET_WRITE = -12; //handshake msg from server reply to to get write permission
 
   // total size of a message, includes payload and overhead
   public static final int SIZE_MESSAGE = 256;
@@ -25,10 +27,22 @@ public class RamcastConfig {
   public static final int SIZE_TIMESTAMP = 12;
   // total size of remote-head value, include value, msgId
   public static final int SIZE_REMOTE_HEAD = 8;
-  // total size of ack message, including ACK, BALLOT
+  // total size of ack message, including ACK VALUE, BALLOT
   public static final int SIZE_ACK = 8;
+  public static final int SIZE_ACK_VALUE = 4;
   // maximum size of signal package, for acks, update head, or ts
   public static final int SIZE_SIGNAL = 16;
+
+
+  // Message content
+  // ID
+  public static final int SIZE_MSG_ID = 4;
+  public static final int SIZE_MSG_LENGTH = 4;
+  public static final int SIZE_MSG_GROUP_COUNT = 2;
+  public static final int SIZE_MSG_GROUP = 2;
+  public static final int SIZE_MSG_OFFSET = 2;
+  public static final int SIZE_MSG_SLOT = 2;
+
 
   // positions in a message
   // total size of ack message, including ACK, BALLOT

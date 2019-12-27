@@ -1,7 +1,13 @@
 package ch.usi.dslab.lel.ramcast.endpoint;
 
-import ch.usi.dslab.lel.ramcast.*;
+import ch.usi.dslab.lel.ramcast.RamcastAgent;
+import ch.usi.dslab.lel.ramcast.RamcastConfig;
+import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
+import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor;
+import ch.usi.dslab.lel.ramcast.processors.LeaderElectionProcessor;
 import ch.usi.dslab.lel.ramcast.processors.MessageProcessor;
 import com.ibm.disni.RdmaCqProcessor;
 import com.ibm.disni.RdmaCqProvider;
@@ -15,8 +21,10 @@ import org.slf4j.MDC;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
@@ -27,11 +35,15 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   private HashMap<Integer, RamcastCqProcessor<RamcastEndpoint>> cqMap;
   private int timeout;
 
+  // for leader election
+  private AtomicInteger currentBallotNumber;
+
   // storing memory segment block associated with each endpoint
-  private Map<RamcastEndpoint, RamcastMemoryBlock> endpointMemorySegmentMap;
+  //  private Map<RamcastEndpoint, RamcastMemoryBlock> endpointMemorySegmentMap;
 
   // storing all endponints of all nodes
   private Map<RamcastNode, RamcastEndpoint> endpointMap;
+  private Map<Integer, List<RamcastEndpoint>> groupEndpointsMap;
 
   // shared memory for receiving message from clients
   private ByteBuffer sharedCircularBuffer;
@@ -40,6 +52,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   private ByteBuffer sharedTimestampBuffer;
 
   private HandshakingProcessor handshakingProcessor;
+  private LeaderElectionProcessor leaderElectionProcessor;
   private MessageProcessor messageProcessor;
 
   private CustomHandler customHandler;
@@ -56,10 +69,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             config.getTotalNodeCount(), config.getQueueLength(), RamcastConfig.SIZE_TIMESTAMP);
 
     this.endpointMap = new ConcurrentHashMap<>();
+    this.groupEndpointsMap = new ConcurrentHashMap<>();
     this.cqMap = new HashMap<>();
     this.handshakingProcessor = new HandshakingProcessor(this, agent);
+    this.leaderElectionProcessor = new LeaderElectionProcessor(this, agent);
     this.messageProcessor = new MessageProcessor(this, agent);
-    this.endpointMemorySegmentMap = new ConcurrentHashMap<>();
+    this.currentBallotNumber = new AtomicInteger(0);
+    //    this.endpointMemorySegmentMap = new ConcurrentHashMap<>();
   }
 
   public static RamcastEndpointGroup createEndpointGroup(RamcastAgent agent, int timeout)
@@ -78,13 +94,17 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void writeMessage(RamcastNode node, ByteBuffer buffer) throws IOException {
+    logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.endpointMap);
     this.endpointMap.get(node).writeMessage(buffer);
   }
 
   public void handleProtocolMessage(RamcastEndpoint endpoint, ByteBuffer buffer)
       throws IOException {
-    if (buffer.getInt(0) < -0 && buffer.getInt(0) > -20) { // hack: hs message has ID from -1 -> -20
+    if (buffer.getInt(0) < 0 && buffer.getInt(0) >= -10) { // hack: hs message has ID from -1 -> -10
       this.handshakingProcessor.handleHandshakeMessage(endpoint, buffer);
+    } else if (buffer.getInt(0) < -10
+        && buffer.getInt(0) >= -20) { // hack: hs message has ID from -11 -> -20
+      this.leaderElectionProcessor.handleLeaderElectionMessage(endpoint, buffer);
     }
   }
 
@@ -97,26 +117,44 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void handleReceiveMessage(RamcastMessage message) {
-    if (customHandler != null) customHandler.handleReceiveMessage(message.getBuffer());
+    if (customHandler != null) customHandler.handleReceiveMessage(message);
     this.messageProcessor.handleMessage(message);
+  }
+
+  public void handlePermissionError(ByteBuffer buffer) {
+    if (customHandler != null) customHandler.handlePermissionError(buffer);
   }
 
   public void initHandshaking(RamcastEndpoint endpoint) throws IOException {
     this.handshakingProcessor.initHandshaking(endpoint);
   }
 
+  public void requestWritePermission() throws IOException, InterruptedException {
+    this.currentBallotNumber.incrementAndGet();
+    for (RamcastEndpoint endpoint : this.getEndpointMap().values()) {
+      this.leaderElectionProcessor.requestWritePermission(endpoint, this.currentBallotNumber.get());
+      logger.debug(">>> Client exchanged permission data to: {}.", endpoint.getNode());
+    }
+    // wait for receiving acks from all nodes
+    while (this.leaderElectionProcessor.getAcks().get()
+        != RamcastConfig.getInstance().getTotalNodeCount() - 1) Thread.sleep(10);
+    logger.debug(
+        ">>> Client FINISHED exchanging permission to {} nodes.",
+        this.leaderElectionProcessor.getAcks().get());
+  }
+
   public void startPollingData() {
+    Map<String, String> contextMap = MDC.getCopyOfContextMap();
     Thread serverDataPolling =
         new Thread(
             () -> {
+              MDC.setContextMap(contextMap);
               logger.info("Polling for incoming data");
               while (true) {
-                for (Map.Entry<RamcastEndpoint, RamcastMemoryBlock> e :
-                    endpointMemorySegmentMap.entrySet()) {
-                  RamcastEndpoint endpoint = e.getKey();
-                  RamcastMemoryBlock block = endpointMemorySegmentMap.get(endpoint);
+                for (Map.Entry<RamcastNode, RamcastEndpoint> e : endpointMap.entrySet()) {
+                  RamcastEndpoint endpoint = e.getValue();
                   if (endpoint != null) {
-                    endpoint.pollForData(block);
+                    endpoint.pollForData();
                   }
                 }
                 Thread.yield();
@@ -126,40 +164,51 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     serverDataPolling.start();
   }
 
-//  public void releaseMemory(RamcastMessage message) throws IOException, InterruptedException {
-//    RamcastMemoryBlock memoryBlock = message.getMemoryBlock();
-//    memoryBlock.freeSlot(message.getAddressOffset());
-//    length += RamcastEndpoint.headerSize;
-//    long end = start + length;
-//
-//      logger.trace("[{}]Trying to release memory space from {} to {}, length={}, block head {} tail {} cap {}, endpoint {}", message.getId(), start, end, length, memoryBlock.getHeadOffset(), memoryBlock.getTailOffset(), memoryBlock.getCapacity(), memoryBlock.getEndpoint().getEndpointId());
-//    memoryBlock.freeSegment(start, end);
-//
-//      logger.debug("[{}] SERVER MEMORY after freeSegment: HEAD={} TAIL={} CAP={}", message.getId(), memoryBlock.getHeadOffset(), memoryBlock.getTailOffset(), memoryBlock.getCapacity());
-//    message.resetReserved();
-//
-//    while (!memoryBlock.getEndpoint().update(message.getId(), memoryBlock.getEndpoint().getRemoteHeadMemory().getAddress(), memoryBlock.getEndpoint().getRemoteHeadMemory().getLkey(), memoryBlock.getHeadOffset(), message.getId(), 0, 8))
-//      Thread.sleep(0);
-//  }
+  public void releaseMemory(RamcastMessage message) throws IOException {
+    RamcastMemoryBlock memoryBlock = message.getMemoryBlock();
+    int freed = memoryBlock.freeSlot(message.getSlot());
+    RamcastEndpoint endpoint = message.getMemoryBlock().getEndpoint();
+    if (freed == 0) {
+      logger.debug(
+          "[{}] Can't release memory slot. There are pending slots", endpoint.getEndpointId());
+      return;
+    }
+    logger.trace(
+        "[{}] SERVER MEMORY after releasing memory: {}",
+        endpoint.getEndpointId(),
+        endpoint.getSharedCellBlock());
 
-  public void updateRemoteHeadOnClient(RamcastEndpoint endpoint, int headOffset)
+    logger.debug(
+        "[{}] Released memory of {} slot. Update client [{}].", message.getId(), freed, endpoint);
+    message.reset();
+    this.writeRemoteHeadOnClient(endpoint, freed);
+  }
+  //
+  //  public void setWritePermission(RamcastEndpoint endpoint) throws IOException {
+  //    for (RamcastEndpoint ramcastEndpoint : this.endpointMap.values()) {
+  //      ramcastEndpoint.revokeTimestampWritePermission();
+  //    }
+  //  }
+
+  public void writeTimestamp(
+      RamcastEndpoint endpoint, int slotNumber, int ballot, int timestamp, int value)
       throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(4);
-    buffer.putInt(headOffset);
-    RamcastMemoryBlock clientBlock = endpoint.getClientBlockOfServerHead();
+    RamcastMemoryBlock timestampBlock = endpoint.getRemoteTimeStampBlock();
+    long address = timestampBlock.getAddress() + slotNumber * RamcastConfig.SIZE_TIMESTAMP;
     endpoint.writeSignal(
-        buffer, clientBlock.getAddress(), clientBlock.getLkey(), buffer.capacity());
+        address,
+        timestampBlock.getLkey(),
+        Integer.TYPE,
+        ballot,
+        Integer.TYPE,
+        timestamp,
+        Integer.TYPE,
+        value);
   }
 
-  public void close() throws IOException, InterruptedException {
-    super.close();
-    for (RamcastEndpoint endpoint : endpointMap.values()) {
-      endpoint.close();
-    }
-    for (RamcastCqProcessor<RamcastEndpoint> cq : cqMap.values()) {
-      cq.close();
-    }
-    logger.info("rpc group down");
+  public void writeRemoteHeadOnClient(RamcastEndpoint endpoint, int headOffset) throws IOException {
+    RamcastMemoryBlock clientBlock = endpoint.getRemoteServerHeadBlock();
+    endpoint.writeSignal(clientBlock.getAddress(), clientBlock.getLkey(), Integer.TYPE, headOffset);
   }
 
   public ByteBuffer getSharedCircularBuffer() {
@@ -174,12 +223,20 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     this.customHandler = customHandler;
   }
 
-  public Map<RamcastEndpoint, RamcastMemoryBlock> getEndpointMemorySegmentMap() {
-    return endpointMemorySegmentMap;
-  }
-
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
     return endpointMap;
+  }
+
+  public int getBallotNumber() {
+    return currentBallotNumber.get();
+  }
+
+  public Map<Integer, List<RamcastEndpoint>> getGroupEndpointsMap() {
+    return groupEndpointsMap;
+  }
+
+  public RamcastAgent getAgent() {
+    return agent;
   }
 
   private ByteBuffer allocateSharedBuffer(int connectionCount, int queueLength, int packageSize) {
@@ -189,8 +246,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException {
     IbvQPInitAttr attr = new IbvQPInitAttr();
-    attr.cap().setMax_recv_wr(config.getQueueLength());
-    attr.cap().setMax_send_wr(config.getQueueLength());
+    attr.cap().setMax_recv_wr(config.getQueueLength() * 10);
+    attr.cap().setMax_send_wr(config.getQueueLength() * 10);
     attr.cap().setMax_recv_sge(1);
     attr.cap().setMax_send_sge(1);
     attr.cap().setMax_inline_data(config.getMaxinline());
@@ -240,6 +297,51 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     endpoint.allocateResources();
   }
 
+  public void close() throws IOException, InterruptedException {
+    super.close();
+    for (RamcastEndpoint endpoint : endpointMap.values()) {
+      endpoint.close();
+    }
+    for (RamcastCqProcessor<RamcastEndpoint> cq : cqMap.values()) {
+      cq.close();
+    }
+    logger.info("rpc group down");
+  }
+
+  public void connect() throws Exception {
+    // trying to establish a bi-direction connection
+    // A node only connect to node with bigger ids.
+    logger.debug("ALL nodes {}", RamcastGroup.getAllNodes());
+    for (RamcastNode node : RamcastGroup.getAllNodes()) {
+      if (node.getOrderId() > this.agent.getNode().getOrderId()) {
+        logger.debug("connecting to: {}", node);
+        RamcastEndpoint endpoint = this.createEndpoint();
+        endpoint.connect(node.getInetAddress(), config.getTimeout());
+        endpoint.setNode(node);
+        this.initHandshaking(endpoint);
+        while (!endpoint.isReady()) Thread.sleep(10);
+        logger.debug(">>> Client connected to: {}. CONNECTION READY", node);
+      }
+    }
+  }
+
+  public void setBallotNumber(int ballotNumnber) {
+    this.currentBallotNumber.set(ballotNumnber);
+  }
+
+  public void revokeTimestampWritePermission() throws IOException {
+    for (RamcastEndpoint ramcastEndpoint : this.getEndpointMap().values()) {
+      // only revoke permission of nodes in same group
+      if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId()) {
+        logger.debug(
+            "Revoking write permission of {} on {}",
+            ramcastEndpoint.getNode(),
+            this.agent.getNode());
+        ramcastEndpoint.registerTimestampReadPermission();
+      }
+    }
+  }
+
   public static class RamcastEndpointFactory implements RdmaEndpointFactory<RamcastEndpoint> {
     private RamcastEndpointGroup group;
 
@@ -275,6 +377,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       } else {
         MDC.clear();
       }
+      //      logger.trace("dispatch cq event, wrId={}", wc.getWr_id());
       endpoint.dispatchCqEvent(wc);
     }
   }

@@ -1,7 +1,7 @@
 package ch.usi.dslab.lel.ramcast.processors;
 
 import ch.usi.dslab.lel.ramcast.RamcastAgent;
-import ch.usi.dslab.lel.ramcast.RamcastMessage;
+import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpointGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

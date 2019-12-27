@@ -1,11 +1,13 @@
-package ch.usi.dslab.lel.ramcast;
+package ch.usi.dslab.lel.ramcast.models;
+
+import ch.usi.dslab.lel.ramcast.RamcastConfig;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 
 public class RamcastNode {
 
-  static HashMap<Integer, RamcastGroup> shadowGroupMap =
+  public static HashMap<Integer, RamcastGroup> shadowGroupMap =
       new HashMap<>(); // keep nodes thatt are not servers
   private int nodeId;
   private int groupId;

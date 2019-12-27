@@ -23,7 +23,8 @@ package ch.usi.dslab.lel.ramcast.benchmark;
 
 import ch.usi.dslab.lel.ramcast.RamcastAgent;
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
-import ch.usi.dslab.lel.ramcast.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,5 +123,19 @@ public class BenchAgent {
     this.agent.establishConnections();
 
     logger.info("NODE READY");
+
+    ByteBuffer buffer = ByteBuffer.allocateDirect(248);
+    buffer.putInt(10);
+    buffer.putInt(11);
+    buffer.putInt(12);
+
+//    if (this.agent.getNode().getNodeId() == 0) {
+////      this.agent.getEndpointGroup().writeMessage(RamcastNode.getNode(0, 1), buffer);
+//      //      for (int i = 0; i < 1; i++)
+//              this.agent
+//                  .getEndpointGroup()
+//                  .updateRemoteHeadOnClient(
+//                      this.agent.getEndpointMap().get(RamcastNode.getNode(0, 1)), 10);
+//    }
   }
 }

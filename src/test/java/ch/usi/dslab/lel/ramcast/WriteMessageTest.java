@@ -1,9 +1,12 @@
 package ch.usi.dslab.lel.ramcast;
 
 import ch.usi.dslab.lel.ramcast.endpoint.CustomHandler;
+import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
+import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,10 +26,11 @@ public class WriteMessageTest {
   static ByteBuffer buffer;
   static List<RamcastAgent> agents;
   Semaphore sendPermits;
+  Semaphore lock;
 
   @BeforeAll
   public static void setUp() throws Exception {
-    logger.info("Setting up");
+    logger.info("Setting up for WriteMessageTest");
     int groups = 1;
     int nodes = 2;
     File configFile = new File("src/test/resources/systemConfig" + groups + "g" + nodes + "p.json");
@@ -71,8 +75,20 @@ public class WriteMessageTest {
     }
   }
 
+  @BeforeEach
+  public void beforeEach() {
+    sendPermits = new Semaphore(1);
+    lock = new Semaphore(0);
+  }
+
+  @AfterEach
+  public void afterEach() {
+    logger.info("=============================================");
+  }
+
   @Test
   @Order(1)
+  @DisplayName("Should not be able to write big message (> SIZE_MESSAGE)")
   public void testWriteBigMessage() {
     buffer = ByteBuffer.allocateDirect(249);
     buffer.putInt(10);
@@ -88,24 +104,46 @@ public class WriteMessageTest {
   }
 
   @Test
+  public void testPutToBuffer() {
+    RamcastEndpoint endpoint = agents.get(1).getEndpointMap().get(agents.get(0).getNode());
+    ByteBuffer buffer = ByteBuffer.allocateDirect(16);
+    int length = 0;
+    length += endpoint.putToBuffer(buffer, Integer.TYPE, 1);
+    length += endpoint.putToBuffer(buffer, Character.TYPE, 'A');
+    length += endpoint.putToBuffer(buffer, Long.TYPE, (long) 2);
+    length += endpoint.putToBuffer(buffer, Short.TYPE, (short) 3);
+    assertEquals(16, length);
+    assertEquals(1, buffer.getInt(0));
+    assertEquals('A', buffer.getChar(4));
+    assertEquals(2, buffer.getLong(6));
+    assertEquals(3, buffer.getShort(14));
+  }
+
+  @Test
   @Order(2)
-  public void testWriteMessage() throws IOException {
-    buffer = ByteBuffer.allocateDirect(248);
+  @DisplayName(
+      "Should be able to write a message to remote side. Remote delivers/releases memory/updates back head pointer")
+  public void testWriteMessage() throws IOException, InterruptedException {
+    buffer = ByteBuffer.allocateDirect(RamcastConfig.SIZE_PAYLOAD);
     buffer.putInt(10);
     buffer.putInt(11);
     buffer.putInt(12);
     buffer.putChar('A');
-
-    // make sure the remote buffer has correct number of available slots
+    // no head update from remote side => -1
     assertEquals(
         RamcastConfig.getInstance().getQueueLength(),
+        agents.get(1).getEndpointMap().get(agents.get(0).getNode()).getAvailableSlots());
+    // nothing has been written here => 0
+    assertEquals(
+        0,
         agents
-            .get(0)
+            .get(1)
             .getEndpointMap()
-            .get(agents.get(1).getNode())
-            .getRemoteSharedCellBlock()
-            .getRemainingSlots());
+            .get(agents.get(0).getNode())
+            .getRemoteCellBlock()
+            .getTailOffset());
 
+    final int[] tailOffset = {0};
     agents
         .get(1)
         .getEndpointGroup()
@@ -113,50 +151,51 @@ public class WriteMessageTest {
             new CustomHandler() {
               @Override
               public void handleReceiveMessage(Object data) {
+                ByteBuffer req = ((RamcastMessage) data).getBuffer();
                 assertTrue(
-                    buffer.getInt(0) == ((ByteBuffer) data).getInt(0)
-                        && buffer.getInt(4) == ((ByteBuffer) data).getInt(4)
-                        && buffer.getInt(8) == ((ByteBuffer) data).getInt(8)
-                        && buffer.getChar(12) == ((ByteBuffer) data).getChar(12));
+                    buffer.getInt(0) == req.getInt(0)
+                        && buffer.getInt(4) == req.getInt(4)
+                        && buffer.getInt(8) == req.getInt(8)
+                        && buffer.getChar(12) == req.getChar(12));
+                tailOffset[0] =
+                    agents
+                        .get(1)
+                        .getEndpointMap()
+                        .get(agents.get(0).getNode())
+                        .getSharedCellBlock()
+                        .getTailOffset();
+                try {
+                  agents.get(1).getEndpointGroup().releaseMemory((RamcastMessage) data);
+                  Thread.sleep(100);
+                } catch (IOException | InterruptedException e) {
+                  e.printStackTrace();
+                }
+                lock.release();
               }
             });
     agents.get(0).getEndpointGroup().writeMessage(agents.get(1).getNode(), buffer);
 
-    // the number of available slots reduced by 1;
+    // check the tail of the remote shared cell block
     assertEquals(
-        RamcastConfig.getInstance().getQueueLength() - 1,
+        1,
         agents
             .get(0)
             .getEndpointMap()
             .get(agents.get(1).getNode())
-            .getRemoteSharedCellBlock()
-            .getRemainingSlots());
+            .getRemoteCellBlock()
+            .getTailOffset());
+
+    lock.acquire();
+    assertEquals(1, tailOffset[0]);
+    assertEquals(
+        RamcastConfig.getInstance().getQueueLength() - 1,
+        agents.get(0).getEndpointMap().get(agents.get(1).getNode()).getAvailableSlots());
   }
 
-//  @Test
-//  @Order(4)
-//  public void testWriteOnCircularBuffer() throws IOException {
-//    buffer = ByteBuffer.allocateDirect(128);
-//    buffer.putInt(10);
-//    buffer.putInt(11);
-//    buffer.putInt(12);
-//    buffer.putChar('A');
-//
-//    // make sure the remote buffer has correct number of available slots
-//    assertEquals(
-//        RamcastConfig.getInstance().getQueueLength(),
-//        agents
-//            .get(0)
-//            .getEndpointMap()
-//            .get(agents.get(1).getNode())
-//            .getRemoteSharedCellBlock()
-//            .getRemainingSlots());
-//  }
-
   @Test
-  @Order(5)
+  @Order(3)
   public void testWriteMultiMessages() throws IOException {
-    buffer = ByteBuffer.allocateDirect(248);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(248);
     buffer.putInt(10);
     buffer.putInt(11);
     buffer.putInt(12);
@@ -177,13 +216,21 @@ public class WriteMessageTest {
             new CustomHandler() {
               @Override
               public void handleReceiveMessage(Object data) {
+                ByteBuffer req = ((RamcastMessage) data).getBuffer();
                 assertTrue(
-                    buffer.getInt(0) == ((ByteBuffer) data).getInt(0)
-                        && buffer.getInt(4) == ((ByteBuffer) data).getInt(4)
-                        && buffer.getInt(8) == ((ByteBuffer) data).getInt(8)
-                        && buffer.getChar(12) == ((ByteBuffer) data).getChar(12));
+                    buffer.getInt(0) == req.getInt(0)
+                        && buffer.getInt(4) == req.getInt(4)
+                        && buffer.getInt(8) == req.getInt(8)
+                        && buffer.getChar(12) == req.getChar(12));
+                response.putInt(0, req.getInt(0));
                 receive.getAndIncrement();
+                MDC.put(
+                    "ROLE",
+                    agents.get(1).getNode().getGroupId()
+                        + "/"
+                        + agents.get(1).getNode().getNodeId());
                 try {
+                  agents.get(1).getEndpointGroup().releaseMemory((RamcastMessage) data);
                   agents.get(1).getEndpointGroup().writeMessage(agents.get(0).getNode(), response);
                 } catch (IOException e) {
                   e.printStackTrace();
@@ -198,19 +245,33 @@ public class WriteMessageTest {
             new CustomHandler() {
               @Override
               public void handleReceiveMessage(Object data) {
+                ByteBuffer req = ((RamcastMessage) data).getBuffer();
                 assertTrue(
-                    response.getInt(0) == ((ByteBuffer) data).getInt(0)
-                        && response.getInt(4) == ((ByteBuffer) data).getInt(4)
-                        && response.getInt(8) == ((ByteBuffer) data).getInt(8)
-                        && response.getChar(12) == ((ByteBuffer) data).getChar(12));
+                    response.getInt(0) == req.getInt(0)
+                        && response.getInt(4) == req.getInt(4)
+                        && response.getInt(8) == req.getInt(8)
+                        && response.getChar(12) == req.getChar(12));
+                MDC.put(
+                    "ROLE",
+                    agents.get(0).getNode().getGroupId()
+                        + "/"
+                        + agents.get(0).getNode().getNodeId());
+                try {
+                  agents.get(0).getEndpointGroup().releaseMemory((RamcastMessage) data);
+                } catch (IOException e) {
+                  e.printStackTrace();
+                }
                 releasePermit();
               }
             });
 
-    logger.info("Going to run write test for 5 seconds");
-    long end = System.currentTimeMillis() + 5 * 1000; // going to run this experiment for 20 secs
-    while (send.get() < 99) {
+    logger.info("Going to run write test for 1 seconds");
+    long end = System.currentTimeMillis() + 1 * 1000; // going to run this experiment for 20 secs
+    while (System.currentTimeMillis() < end) {
       getPermit();
+      MDC.put(
+          "ROLE", agents.get(0).getNode().getGroupId() + "/" + agents.get(0).getNode().getNodeId());
+      buffer.putInt(0, send.get());
       agents.get(0).getEndpointGroup().writeMessage(agents.get(1).getNode(), buffer);
       send.getAndIncrement();
     }
