@@ -192,8 +192,8 @@ public class WriteMessageTest {
         agents.get(0).getEndpointMap().get(agents.get(1).getNode()).getAvailableSlots());
   }
 
-  @Test
-  @Order(3)
+//  @Test
+//  @Order(3)
   public void testWriteMultiMessages() throws IOException {
     ByteBuffer buffer = ByteBuffer.allocateDirect(248);
     buffer.putInt(10);

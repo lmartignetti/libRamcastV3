@@ -24,12 +24,14 @@ package ch.usi.dslab.lel.ramcast.benchmark;
 import ch.usi.dslab.lel.ramcast.RamcastAgent;
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
 import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
 import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 
@@ -124,18 +126,22 @@ public class BenchAgent {
 
     logger.info("NODE READY");
 
-    ByteBuffer buffer = ByteBuffer.allocateDirect(248);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(64);
     buffer.putInt(10);
     buffer.putInt(11);
     buffer.putInt(12);
 
-//    if (this.agent.getNode().getNodeId() == 0) {
-////      this.agent.getEndpointGroup().writeMessage(RamcastNode.getNode(0, 1), buffer);
+    List<RamcastGroup> dest = new ArrayList<>();
+    dest.add(RamcastGroup.getGroup(0));
+    if (this.agent.getNode().getNodeId() == 0) {
+      RamcastMessage msg = this.agent.createMessage(buffer, dest);
+      this.agent.multicast(msg, dest);
+//      this.agent.getEndpointGroup().writeMessage(RamcastNode.getNode(0, 1), buffer);
 //      //      for (int i = 0; i < 1; i++)
 //              this.agent
 //                  .getEndpointGroup()
 //                  .updateRemoteHeadOnClient(
 //                      this.agent.getEndpointMap().get(RamcastNode.getNode(0, 1)), 10);
-//    }
+    }
   }
 }

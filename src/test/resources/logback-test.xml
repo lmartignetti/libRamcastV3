@@ -28,7 +28,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="info" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
     <logger name="ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint" level="debug" additivity="false">

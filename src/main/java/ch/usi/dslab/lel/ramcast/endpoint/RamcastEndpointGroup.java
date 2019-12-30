@@ -20,6 +20,7 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +44,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   // storing all endponints of all nodes
   private Map<RamcastNode, RamcastEndpoint> nodeEndpointMap;
-  private Map<Integer, RamcastEndpoint> endpointMap;
+  private Map<Integer, RamcastEndpoint> incomingEndpointMap;
   private Map<Integer, List<RamcastEndpoint>> groupEndpointsMap;
 
   // shared memory for receiving message from clients
@@ -70,6 +71,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             config.getTotalNodeCount(), config.getQueueLength(), RamcastConfig.SIZE_TIMESTAMP);
 
     this.nodeEndpointMap = new ConcurrentHashMap<>();
+    this.incomingEndpointMap = new ConcurrentHashMap<>();
     this.groupEndpointsMap = new ConcurrentHashMap<>();
     this.cqMap = new HashMap<>();
     this.handshakingProcessor = new HandshakingProcessor(this, agent);
@@ -97,6 +99,17 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   public void writeMessage(RamcastNode node, ByteBuffer buffer) throws IOException {
     logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.nodeEndpointMap);
     this.nodeEndpointMap.get(node).writeMessage(buffer);
+  }
+
+  public void writeMessage(RamcastGroup group, ByteBuffer buffer) throws IOException {
+    logger.debug(
+        "Write message to {}, buffer {}, ep {}",
+        group,
+        buffer,
+        this.groupEndpointsMap.get(group.getId()));
+    for (RamcastEndpoint endpoint : this.getGroupEndpointsMap().get(group.getId())) {
+      endpoint.writeMessage(buffer);
+    }
   }
 
   public void handleProtocolMessage(RamcastEndpoint endpoint, ByteBuffer buffer)
@@ -153,12 +166,34 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
               MDC.setContextMap(contextMap);
               logger.info("Polling for incoming data");
               while (true) {
-                for (Map.Entry<RamcastNode, RamcastEndpoint> e : nodeEndpointMap.entrySet()) {
-                  RamcastEndpoint endpoint = e.getValue();
-                  if (endpoint != null) {
-                    endpoint.pollForData();
-                  }
-                }
+                //                groupEndpointsMap
+                //                    .values()
+                //                    .forEach(
+                //                        (eps) -> {
+                //                          eps.forEach(
+                //                              ep -> {
+                //                                if (ep != null) {
+                //                                  ep.pollForData();
+                //                                }
+                //                              });
+                //                        });
+
+                //                for (Map.Entry<RamcastNode, RamcastEndpoint> e :
+                // nodeEndpointMap.entrySet()) {
+                //                  RamcastEndpoint endpoint = e.getValue();
+                //                  if (endpoint != null) {
+                //                    endpoint.pollForData();
+                //                  }
+                //                }
+
+                this.incomingEndpointMap
+                    .values()
+                    .forEach(
+                        (e) -> {
+                          if (e != null) {
+                            e.pollForData();
+                          }
+                        });
                 Thread.yield();
               }
             });
@@ -223,6 +258,10 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   public void setCustomHandler(CustomHandler customHandler) {
     this.customHandler = customHandler;
+  }
+
+  public Map<Integer, RamcastEndpoint> getIncomingEndpointMap() {
+    return incomingEndpointMap;
   }
 
   public Map<RamcastNode, RamcastEndpoint> getNodeEndpointMap() {
@@ -313,16 +352,23 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   public void connect() throws Exception {
     // trying to establish a bi-direction connection
     // A node only connect to node with bigger ids.
-    logger.debug("ALL nodes {}", RamcastGroup.getAllNodes());
     for (RamcastNode node : RamcastGroup.getAllNodes()) {
       if (node.getOrderId() >= this.agent.getNode().getOrderId()) {
         logger.debug("connecting to: {}", node);
         RamcastEndpoint endpoint = this.createEndpoint();
         endpoint.connect(node.getInetAddress(), config.getTimeout());
         endpoint.setNode(node);
+        // if the node is connecting to itself
+        if (node.equals(agent.getNode())) {
+          this.getNodeEndpointMap().put(node, endpoint);
+          List<RamcastEndpoint> eps =
+              this.getGroupEndpointsMap()
+                  .computeIfAbsent(node.getGroupId(), k -> new ArrayList<>());
+          eps.add(endpoint);
+        }
         this.initHandshaking(endpoint);
         while (!endpoint.isReady()) Thread.sleep(10);
-        logger.debug(">>> Client connected to: {}. CONNECTION READY", node);
+        logger.debug(">>> Client connected to: {}. CONNECTION READY", endpoint);
       }
     }
   }
@@ -335,7 +381,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     for (RamcastEndpoint ramcastEndpoint : this.getNodeEndpointMap().values()) {
       // only revoke permission of nodes in same group
       // and are not leader
-      if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId() && !ramcastEndpoint.getNode().isLeader()) {
+      if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId()
+          && !ramcastEndpoint.getNode().isLeader()) {
         logger.debug(
             "Revoking write permission of {} on {}",
             ramcastEndpoint.getNode(),

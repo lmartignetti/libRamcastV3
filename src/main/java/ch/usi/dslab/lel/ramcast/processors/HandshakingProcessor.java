@@ -107,16 +107,21 @@ public class HandshakingProcessor {
 
       endpoint.send(response);
       endpoint.setHasExchangedServerData(true);
-//      System.out.println(this.group.getEndpointMap());
-      this.group.getNodeEndpointMap().putIfAbsent(node, endpoint);
 
+      // storing all incomming endpoints
+      this.group.getIncomingEndpointMap().put(endpoint.getEndpointId(), endpoint);
+
+      // if this connection is not from the node itself => add it as outgoing conn
+      boolean exists = this.group.getNodeEndpointMap().get(node) != null;
+      this.group.getNodeEndpointMap().putIfAbsent(node, endpoint);
       List<RamcastEndpoint> eps = this.group.getGroupEndpointsMap().get(groupId);
       if (eps == null) eps = new ArrayList<>();
-      eps.add(endpoint);
+      if (!exists) eps.add(endpoint);
       eps.sort(Comparator.comparingInt(ep -> ep.getNode().getNodeId()));
       this.group.getGroupEndpointsMap().put(groupId, eps);
 
-//      if (endpoint.getNode().equals(this.agent.getNode()))endpoint.setHasExchangedClientData(true);
+      // if the node is connecting to itself -> don't need to do the reverse handshaking
+      if (endpoint.getNode().equals(this.agent.getNode())) endpoint.setHasExchangedClientData(true);
       if (!endpoint.hasExchangedClientData()) this.initHandshaking(endpoint);
     } else if (ticket == RamcastConfig.MSG_HS_S1) { // msg step 1 sent from server
       logger.debug(
@@ -138,7 +143,7 @@ public class HandshakingProcessor {
           endpoint.getRemoteSharedMemoryCellBlock());
 
       endpoint.setHasExchangedClientData(true);
-//      if (endpoint.getNode().equals(this.agent.getNode()))endpoint.setHasExchangedServerData(true);
+      if (endpoint.getNode().equals(this.agent.getNode())) endpoint.setHasExchangedServerData(true);
 
     } else {
       throw new IOException("Protocol msg code not found :" + ticket);

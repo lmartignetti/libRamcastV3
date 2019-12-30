@@ -51,8 +51,8 @@ public class RamcastMessage {
     this.groupsCount = (short) groups.length;
     this.buffer = null;
     this.address = -1;
-    this.groupsAcks = new short[groups.length][config.getNodePerGroup()];
-    this.groupsAckBallots = new short[groups.length][config.getNodePerGroup()];
+    this.groupsAcks = new short[groups.length][config.getFollowerCount()];
+    this.groupsAckBallots = new short[groups.length][config.getFollowerCount()];
   }
 
   public RamcastMessage(ByteBuffer buffer, RamcastMemoryBlock memoryBlock) {
@@ -64,6 +64,7 @@ public class RamcastMessage {
 
   public ByteBuffer toBuffer() {
     ByteBuffer ret = ByteBuffer.allocateDirect(RamcastConfig.SIZE_PAYLOAD);
+    this.message.clear();
     ret.putInt(this.id);
     ret.putInt(this.messageLength);
     ret.put(this.message);
@@ -117,6 +118,7 @@ public class RamcastMessage {
           ((ByteBuffer) this.buffer.position(POS_MSG).limit(POS_MSG + this.getMessageLength()))
               .slice();
       this.message.clear();
+      this.buffer.clear();
     }
     return this.message;
   }
@@ -153,10 +155,10 @@ public class RamcastMessage {
     if (this.buffer == null) return this.groupsAcks[groupIndex][nodeIndex];
 
     if (this.groupsAcks == null) {
-      this.groupsAcks = new short[this.getGroupCount()][config.getNodePerGroup()];
+      this.groupsAcks = new short[this.getGroupCount()][config.getFollowerCount()];
     }
     if (this.groupsAcks[groupIndex][nodeIndex] <= 0) {
-      int index = groupIndex * config.getNodePerGroup() + nodeIndex;
+      int index = groupIndex * config.getFollowerCount() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
       try {
         this.groupsAcks[groupIndex][nodeIndex] = this.buffer.getShort(pos);
@@ -173,10 +175,10 @@ public class RamcastMessage {
     if (this.buffer == null) return this.groupsAckBallots[groupIndex][nodeIndex];
 
     if (this.groupsAckBallots == null) {
-      this.groupsAckBallots = new short[this.getGroupCount()][config.getNodePerGroup()];
+      this.groupsAckBallots = new short[this.getGroupCount()][config.getFollowerCount()];
     }
     if (this.groupsAckBallots[groupIndex][nodeIndex] <= 0) {
-      int index = groupIndex * config.getNodePerGroup() + nodeIndex;
+      int index = groupIndex * config.getFollowerCount() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
       try {
         this.groupsAckBallots[groupIndex][nodeIndex] =
@@ -207,13 +209,11 @@ public class RamcastMessage {
     for (int i = 0; i < this.getGroupCount(); i++) offset.append(this.getGroupSlot(i)).append("│");
 
     for (int i = 0; i < this.getGroupCount(); i++) {
-      for (int j = 0; j < config.getNodePerGroup(); j++)
+      for (int j = 0; j < config.getFollowerCount(); j++)
         acks.append(this.getAck(i, j)).append("/").append(this.getAckBallot(i, j)).append("|");
-      acks = new StringBuilder(acks.substring(0, acks.length()-1));
+      acks = new StringBuilder(acks.substring(0, acks.length() - 1));
       acks.append("│");
     }
-
-
     dests = new StringBuilder(dests.substring(0, dests.length() - 1));
     offset = new StringBuilder(offset.substring(0, offset.length() - 1));
     acks = new StringBuilder(acks.substring(0, acks.length() - 1));

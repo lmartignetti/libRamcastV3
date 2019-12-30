@@ -207,7 +207,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
       ByteBuffer sendBuf = verbCalls.sendBufs[index];
       sendBuf.clear();
       sendBuf.put(buffer);
-      logger.trace(
+      logger.debug(
           "[{}/{}] sendBuff -- capacity:{} / limit:{} / remaining: {} / first Int {}",
           this.endpointId,
           index,
@@ -257,7 +257,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
     boolean signaled = unsignaledUpdateCount % config.getSignalInterval() == 0;
     if (postSend != null) {
       int index = (int) postSend.getWrMod(0).getWr_id();
-      logger.trace(
+      logger.debug(
           "[{}/{}] perform WRITE SIGNAL {} to {} at address {} lkey {} values {}",
           this.endpointId,
           index,
@@ -325,7 +325,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
       writeBuf.put(buffer);
       writeBuf.putLong(
           RamcastConfig.POS_CHECKSUM, StringUtils.calculateCrc32((ByteBuffer) buffer.clear()));
-      logger.trace(
+      logger.debug(
           "[{}/{}] WRITE at position {} buffer capacity:{} / limit:{} / remaining: {} / first int {} / checksum {} / tail {}",
           this.endpointId,
           index,
@@ -342,7 +342,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
       this.remoteCellBlock.advanceTail();
       postSend.getWrMod(0).getRdmaMod().setRkey(this.remoteCellBlock.getLkey());
       if (signaled) {
-        logger.trace(
+        logger.debug(
             "[{}/{}] client Signaled remote write. Adding postSend to pending list. Remote mem {}",
             this.endpointId,
             index,
@@ -354,7 +354,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
       }
       postSend.execute();
       if (!signaled) {
-        logger.trace(
+        logger.debug(
             "[{}/{}] client Unsignaled remote write. Adding back postSend to available list. Remote mem {}",
             this.endpointId,
             index,
@@ -427,13 +427,12 @@ public class RamcastEndpoint extends RdmaEndpoint {
     if (freed > 0) {
       this.remoteHeadBuffer.putInt(0, 0);
       this.remoteCellBlock.moveHeadOffset(freed);
-      logger.trace(
-          "[{}/] CLIENT do SET HEAD of {} to move {} positions, head {} tail {}",
+      logger.debug(
+          "[{}/] CLIENT do SET HEAD of {} to move {} positions, memory: {}",
           this.endpointId,
           this.node,
           freed,
-          this.remoteCellBlock.getHeadOffset(),
-          this.remoteCellBlock.getTailOffset());
+          this.remoteCellBlock);
     }
     return this.remoteCellBlock.getRemainingSlots();
   }
@@ -612,6 +611,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
           recvBuffer.getInt(start + 8),
           checksum);
       RamcastMemoryBlock clone = this.sharedCellBlock.copy();
+
       RamcastMessage message =
           new RamcastMessage(
               ((ByteBuffer) recvBuffer.position(start).limit(start + RamcastConfig.SIZE_PAYLOAD))
@@ -621,10 +621,9 @@ public class RamcastEndpoint extends RdmaEndpoint {
       // reset recvBuffer
       recvBuffer.clear();
       recvBuffer.putLong(start + RamcastConfig.POS_CHECKSUM, 0);
-
       // update remote head
       this.sharedCellBlock.advanceTail();
-      logger.trace("[{}] SERVER MEMORY after polling: {}", this.endpointId, this.sharedCellBlock);
+      logger.debug("[{}] SERVER MEMORY after polling: {}", this.endpointId, this.sharedCellBlock);
 
       this.dispatchRemoteWrite(message);
     } catch (Exception e) {

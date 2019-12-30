@@ -66,16 +66,17 @@ public class LeaderElectionProcessor {
       }
       endpoint.setHasExchangedPermissionData(true);
     } else if (ticket == RamcastConfig.MSG_HS_S_GET_WRITE) { // msg step 1 sent from client
+      endpoint.setRemoteSharedTimestampMemoryBlock(
+          buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
+      acks.getAndIncrement();
+      endpoint.setHasExchangedPermissionData(true);
       logger.debug(
-          "[HS] Step Request Write permission CLIENT Receiving from {}: timestampBlock addr={} lkey={} capacity={}",
+          "[HS] Step Request Write permission CLIENT Receiving from {}: timestampBlock addr={} lkey={} capacity={} ack={}",
           endpoint.getNode(),
           buffer.getLong(4),
           buffer.getInt(12),
-          buffer.getInt(16));
-      endpoint.setRemoteSharedTimestampMemoryBlock(
-          buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
-      endpoint.setHasExchangedPermissionData(true);
-      acks.getAndIncrement();
+          buffer.getInt(16),
+          acks.get());
     } else {
       throw new IOException("Protocol msg code not found :" + ticket);
     }

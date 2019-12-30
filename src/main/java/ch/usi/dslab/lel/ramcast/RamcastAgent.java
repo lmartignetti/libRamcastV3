@@ -112,11 +112,17 @@ public class RamcastAgent {
 
   public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
       throws IOException {
+    logger.debug("Multicasting to dest {} message {}", destinations, message);
     for (RamcastGroup group : destinations) {
-      for (RamcastNode node : group.getMembers()) {
-        this.endpointGroup.writeMessage(node, message.toBuffer());
-      }
+
+        this.endpointGroup.writeMessage(group, message.toBuffer());
+
     }
+//    for (RamcastGroup group : destinations) {
+//      for (RamcastNode node : group.getMembers()) {
+//        this.endpointGroup.writeMessage(node, message.toBuffer());
+//      }
+//    }
   }
 
   public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
@@ -143,11 +149,13 @@ public class RamcastAgent {
       List<RamcastEndpoint> eps = endpointGroup.getGroupEndpointsMap().get(group.getId());
       for (RamcastEndpoint ep : eps) {
         if (ep.getAvailableSlots() <= 0) return null;
-        if (tail < ep.getRemoteCellBlock().getTailOffset()
-            && (available < ep.getAvailableSlots())) {
-          tail = ep.getRemoteCellBlock().getTailOffset();
-          available = ep.getAvailableSlots();
-        }
+        tail =  ep.getRemoteCellBlock().getTailOffset();
+        break;
+//        if (tail < ep.getRemoteCellBlock().getTailOffset()
+//            && (available < ep.getAvailableSlots())) {
+//          tail = ep.getRemoteCellBlock().getTailOffset();
+//          available = ep.getAvailableSlots();
+//        }
       }
       ret[i++] = (short) tail;
     }

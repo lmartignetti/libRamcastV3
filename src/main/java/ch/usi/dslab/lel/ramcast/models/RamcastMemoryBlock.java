@@ -82,6 +82,8 @@ public class RamcastMemoryBlock {
         + headOffset
         + ", tail="
         + tailOffset
+        + ", pass="
+        + tailPassedHead
         + ", address="
         + address
         + ", lkey="
@@ -153,6 +155,7 @@ public class RamcastMemoryBlock {
     if (tailOffset * RamcastConfig.SIZE_MESSAGE == this.capacity) {
       tailOffset = 0;
       if (!tailPassedHead) tailPassedHead = true;
+      logger.debug("Reseting tail {}, endpoint {}", this, endpoint);
     }
   }
 
@@ -174,6 +177,7 @@ public class RamcastMemoryBlock {
     if (headOffset * RamcastConfig.SIZE_MESSAGE == this.capacity) {
       headOffset = 0;
       if (tailPassedHead) tailPassedHead = false;
+      logger.debug("Reseting head {}, endpoint {}", this, endpoint);
     }
   }
 
