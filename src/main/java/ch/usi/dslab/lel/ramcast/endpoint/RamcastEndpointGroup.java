@@ -42,7 +42,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   //  private Map<RamcastEndpoint, RamcastMemoryBlock> endpointMemorySegmentMap;
 
   // storing all endponints of all nodes
-  private Map<RamcastNode, RamcastEndpoint> endpointMap;
+  private Map<RamcastNode, RamcastEndpoint> nodeEndpointMap;
+  private Map<Integer, RamcastEndpoint> endpointMap;
   private Map<Integer, List<RamcastEndpoint>> groupEndpointsMap;
 
   // shared memory for receiving message from clients
@@ -68,7 +69,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         allocateSharedBuffer(
             config.getTotalNodeCount(), config.getQueueLength(), RamcastConfig.SIZE_TIMESTAMP);
 
-    this.endpointMap = new ConcurrentHashMap<>();
+    this.nodeEndpointMap = new ConcurrentHashMap<>();
     this.groupEndpointsMap = new ConcurrentHashMap<>();
     this.cqMap = new HashMap<>();
     this.handshakingProcessor = new HandshakingProcessor(this, agent);
@@ -90,12 +91,12 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void send(RamcastNode node, ByteBuffer buffer) throws IOException {
-    this.endpointMap.get(node).send(buffer);
+    this.nodeEndpointMap.get(node).send(buffer);
   }
 
   public void writeMessage(RamcastNode node, ByteBuffer buffer) throws IOException {
-    logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.endpointMap);
-    this.endpointMap.get(node).writeMessage(buffer);
+    logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.nodeEndpointMap);
+    this.nodeEndpointMap.get(node).writeMessage(buffer);
   }
 
   public void handleProtocolMessage(RamcastEndpoint endpoint, ByteBuffer buffer)
@@ -131,13 +132,14 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   public void requestWritePermission() throws IOException, InterruptedException {
     this.currentBallotNumber.incrementAndGet();
-    for (RamcastEndpoint endpoint : this.getEndpointMap().values()) {
+    for (RamcastEndpoint endpoint : this.getNodeEndpointMap().values()) {
       this.leaderElectionProcessor.requestWritePermission(endpoint, this.currentBallotNumber.get());
       logger.debug(">>> Client exchanged permission data to: {}.", endpoint.getNode());
     }
     // wait for receiving acks from all nodes
     while (this.leaderElectionProcessor.getAcks().get()
-        != RamcastConfig.getInstance().getTotalNodeCount() - 1) Thread.sleep(10);
+        // todo: find nicer way for -1
+        != RamcastConfig.getInstance().getTotalNodeCount()) Thread.sleep(10);
     logger.debug(
         ">>> Client FINISHED exchanging permission to {} nodes.",
         this.leaderElectionProcessor.getAcks().get());
@@ -151,7 +153,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
               MDC.setContextMap(contextMap);
               logger.info("Polling for incoming data");
               while (true) {
-                for (Map.Entry<RamcastNode, RamcastEndpoint> e : endpointMap.entrySet()) {
+                for (Map.Entry<RamcastNode, RamcastEndpoint> e : nodeEndpointMap.entrySet()) {
                   RamcastEndpoint endpoint = e.getValue();
                   if (endpoint != null) {
                     endpoint.pollForData();
@@ -223,8 +225,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     this.customHandler = customHandler;
   }
 
-  public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
-    return endpointMap;
+  public Map<RamcastNode, RamcastEndpoint> getNodeEndpointMap() {
+    return nodeEndpointMap;
   }
 
   public int getBallotNumber() {
@@ -299,7 +301,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   public void close() throws IOException, InterruptedException {
     super.close();
-    for (RamcastEndpoint endpoint : endpointMap.values()) {
+    for (RamcastEndpoint endpoint : nodeEndpointMap.values()) {
       endpoint.close();
     }
     for (RamcastCqProcessor<RamcastEndpoint> cq : cqMap.values()) {
@@ -313,7 +315,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     // A node only connect to node with bigger ids.
     logger.debug("ALL nodes {}", RamcastGroup.getAllNodes());
     for (RamcastNode node : RamcastGroup.getAllNodes()) {
-      if (node.getOrderId() > this.agent.getNode().getOrderId()) {
+      if (node.getOrderId() >= this.agent.getNode().getOrderId()) {
         logger.debug("connecting to: {}", node);
         RamcastEndpoint endpoint = this.createEndpoint();
         endpoint.connect(node.getInetAddress(), config.getTimeout());
@@ -330,9 +332,10 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void revokeTimestampWritePermission() throws IOException {
-    for (RamcastEndpoint ramcastEndpoint : this.getEndpointMap().values()) {
+    for (RamcastEndpoint ramcastEndpoint : this.getNodeEndpointMap().values()) {
       // only revoke permission of nodes in same group
-      if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId()) {
+      // and are not leader
+      if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId() && !ramcastEndpoint.getNode().isLeader()) {
         logger.debug(
             "Revoking write permission of {} on {}",
             ramcastEndpoint.getNode(),

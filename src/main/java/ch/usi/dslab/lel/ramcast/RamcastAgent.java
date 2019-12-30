@@ -62,7 +62,8 @@ public class RamcastAgent {
     this.endpointGroup.connect();
     while (true) {
       Thread.sleep(10);
-      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()-1) continue;
+      // todo: find nicer way for -1
+      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()) continue;
       if (this.getEndpointMap().values().stream()
           .map(RamcastEndpoint::isReady)
           .reduce(Boolean::logicalAnd)
@@ -77,7 +78,8 @@ public class RamcastAgent {
 
     while (true) {
       Thread.sleep(10);
-      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()-1) continue;
+      // todo: find nicer way for -1
+      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()) continue;
       if (this.getEndpointMap().values().stream()
           .map(RamcastEndpoint::hasExchangedPermissionData)
           .reduce(Boolean::logicalAnd)
@@ -92,7 +94,7 @@ public class RamcastAgent {
   }
 
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
-    return this.endpointGroup.getEndpointMap();
+    return this.endpointGroup.getNodeEndpointMap();
   }
 
   public RamcastNode getNode() {

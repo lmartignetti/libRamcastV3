@@ -69,11 +69,6 @@ public class RamcastNode {
     if (isLeader) this.getGroup().setLeader(this);
   }
 
-  //    public boolean isLeader(RamcastMessage msg) {
-  //        return RamcastConfig.ROTATING_LEADER ? msg.getLeaderNodeId() == this.nodeId :
-  // this.isLeader;
-  //    }
-
   public int getNodeId() {
     return this.nodeId;
   }

@@ -25,8 +25,8 @@ public class ConnectionsTest {
   static RamcastConfig config = RamcastConfig.getInstance();
   static ByteBuffer buffer;
 
-  static int groups = 2;
-  static int nodes = 3;
+  static int groups = 1;
+  static int nodes = 2;
   static Map<RamcastNode, RamcastAgent> agents;
   static List<Thread> threads;
 
@@ -79,7 +79,8 @@ public class ConnectionsTest {
   public void verifyConnections() {
     // checking connection count
     for (RamcastAgent agent : agents.values()) {
-      assertEquals(groups * nodes - 1, agent.getEndpointMap().keySet().size());
+      // todo: find nicer way for -1
+      assertEquals(groups * nodes, agent.getEndpointMap().keySet().size());
     }
   }
 
@@ -91,7 +92,8 @@ public class ConnectionsTest {
         RamcastEndpoint endpoint = connection.getValue();
         RamcastNode remoteNode = connection.getKey();
         RamcastAgent remoteAgent = agents.get(remoteNode);
-//        logger.debug("Comparing of agent {} and remote agent {}", agent, remoteAgent);
+        logger.debug("Comparing of agent {} and remote agent {}", agent, remoteAgent);
+        if (agent.getNode().equals(remoteNode)) continue;
         assertEquals(
             endpoint.getSharedCircularBlock(),
             remoteAgent.getEndpointMap().get(agent.getNode()).getRemoteCircularBlock());
@@ -103,9 +105,10 @@ public class ConnectionsTest {
     }
     for (int i = 0; i < groups; i++) {
       for (int j = 0; j < nodes; j++) {
-        if (agents.get(RamcastNode.getNode(i, j)).isLeader()) {
-          for (RamcastEndpoint endpoint :
-              agents.get(RamcastNode.getNode(i, j)).getEndpointGroup().getEndpointMap().values()) {
+        RamcastAgent agent = agents.get(RamcastNode.getNode(i, j));
+        if (agent.isLeader()) {
+          for (RamcastEndpoint endpoint : agent.getEndpointMap().values()) {
+            if (agent.getNode().equals(endpoint.getNode())) continue;
             RamcastMemoryBlock remoteTsBlock =
                 agents
                     .get(endpoint.getNode())
@@ -116,8 +119,7 @@ public class ConnectionsTest {
             assertEquals(remoteTsBlock, dataOfRemoteTsBlock);
           }
         } else {
-          for (RamcastEndpoint endpoint :
-              agents.get(RamcastNode.getNode(i, j)).getEndpointGroup().getEndpointMap().values()) {
+          for (RamcastEndpoint endpoint : agent.getEndpointMap().values()) {
             assertNull(endpoint.getRemoteTimeStampBlock());
           }
         }

@@ -108,7 +108,7 @@ public class HandshakingProcessor {
       endpoint.send(response);
       endpoint.setHasExchangedServerData(true);
 //      System.out.println(this.group.getEndpointMap());
-      this.group.getEndpointMap().putIfAbsent(node, endpoint);
+      this.group.getNodeEndpointMap().putIfAbsent(node, endpoint);
 
       List<RamcastEndpoint> eps = this.group.getGroupEndpointsMap().get(groupId);
       if (eps == null) eps = new ArrayList<>();
