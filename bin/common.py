@@ -75,9 +75,13 @@ PATH_NETWRAPPER_CP = os.path.normpath(PATH_NETWRAPPER_HOME + '/target/classes')
 PATH_SENSE_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/sense')
 PATH_SENSE_CP = os.path.normpath(PATH_SENSE_HOME + '/target/classes')
 
-DEPENDENCIES_DIR = os.path.normpath(PATH_GLOBAL_HOME + '/dependencies/*')
+DEPENDENCIES_DIR = os.path.normpath(PATH_GLOBAL_HOME + '/dependencies/')
+DEPENDENCIES_JARS = ['logback-core-1.2.3.jar', 'logback-classic-1.2.3.jar', 'slf4j-api-1.7.21.jar',
+                     'hamcrest-core-1.3.jar', 'junit-4.13-rc-2.jar', 'json-simple-1.1.jar', 'commons-cli-1.3.1.jar',
+                     'commons-math3-3.2.jar', 'javatuples-1.2.jar', 'kryo-serializers-0.42.jar', 'kryo-shaded-4.0.0.jar', 'objenesis-2.1.jar', 'minlog-1.3.0.jar']
 
-_class_path = [PATH_NETWRAPPER_CP, PATH_SENSE_CP, PATH_LIBDISNI_CP, PATH_LIBRAMCAST_CP, DEPENDENCIES_DIR]
+DEPENDENCIES = ':'.join([DEPENDENCIES_DIR + '/' + jar for jar in DEPENDENCIES_JARS])
+_class_path = [PATH_NETWRAPPER_CP, PATH_SENSE_CP, PATH_LIBDISNI_CP, PATH_LIBRAMCAST_CP, DEPENDENCIES]
 JAVA_CLASSPATH = ' -cp \'' + ':'.join([str(val) for val in _class_path]) + "\'"
 
 CLASS_GATHERER = "ch.usi.dslab.bezerra.sense.DataGatherer"
@@ -87,7 +91,6 @@ CLASS_CPU_MONITOR = "ch.usi.dslab.bezerra.sense.monitors.CPUMonitorMPStat"
 CLASS_MEM_MONITOR = "ch.usi.dslab.bezerra.sense.monitors.MemoryMonitor"
 
 APP_CLEANER = PATH_LIBRAMCAST_HOME + "/bin/cleanUp.py"
-
 
 PATH_ZK_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/zookeeper')
 PATH_ZK_CONFIG = os.path.normpath(PATH_ZK_HOME + '/conf')

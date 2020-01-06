@@ -52,6 +52,7 @@ public class RamcastConfig {
   public static final int ROLE_BOTH = 3;
   public static final int ROLE_CLIENT = 1;
   public static final int ROLE_SERVER = 2;
+
   public static boolean LOG_ENABLED = true; // flag for logging
   private static RamcastConfig[] instances;
   private int timeout;
@@ -224,5 +225,9 @@ public class RamcastConfig {
 
   public int getNodeCount() {
     return this.groupCount * this.nodePerGroup;
+  }
+
+  public int getGroupCount() {
+    return groupCount;
   }
 }

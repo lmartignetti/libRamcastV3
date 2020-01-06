@@ -244,7 +244,7 @@ public class RamcastEndpointVerbCall {
     if (sendOperation == null) {
       throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
-    logger.trace("[{}/{}] adding back send postsend", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back send postsend", this.endpoint.getEndpointId(), index);
     this.freeSendPostSend.add(sendOperation);
   }
 
@@ -253,7 +253,7 @@ public class RamcastEndpointVerbCall {
     if (sendOperation == null) {
       throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
-    logger.trace("[{}/{}] adding back write postsend", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back write postsend", this.endpoint.getEndpointId(), index);
     this.freeWritePostSend.add(sendOperation);
   }
 
@@ -265,13 +265,13 @@ public class RamcastEndpointVerbCall {
       if (sendOperation == null) {
         throw new IOException(this.endpoint.getNode() + " no pending index " + index);
       }
-      logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);
       this.freeUpdatePostSend.add(sendOperation);
 //    }
   }
 
   protected void postRecv(int index) throws IOException {
-    logger.trace("[{}/{}] execute postrecv", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] execute postrecv", this.endpoint.getEndpointId(), index);
     recvCall[index].execute();
   }
 

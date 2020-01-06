@@ -26,16 +26,31 @@ public class RamcastAgent {
   private RdmaServerEndpoint<RamcastEndpoint> serverEp;
 
   private RamcastNode leader;
+  private MessageDeliveredCallback onDeliverCallback;
 
   public RamcastAgent(int groupId, int nodeId) throws Exception {
+    this(
+        groupId,
+        nodeId,
+        new MessageDeliveredCallback() {
+          @Override
+          public void call(Object data) {
+            if (RamcastConfig.LOG_ENABLED) logger.debug("Delivered message {}", data);
+          }
+        });
+  }
+
+  public RamcastAgent(int groupId, int nodeId, MessageDeliveredCallback onDeliverCallback)
+      throws Exception {
     MDC.put("ROLE", groupId + "/" + nodeId);
     this.node = RamcastNode.getNode(groupId, nodeId);
+    this.onDeliverCallback = onDeliverCallback;
 
     // temp for setting a leader;
     this.leader = RamcastNode.getNode(groupId, 0);
   }
 
-  public void establishConnections() throws Exception {
+  public void bind() throws Exception {
     // listen for new connections
     this.endpointGroup = RamcastEndpointGroup.createEndpointGroup(this, config.getTimeout());
     this.serverEp = endpointGroup.createServerEndpoint();
@@ -48,8 +63,9 @@ public class RamcastAgent {
                 try {
                   RamcastEndpoint endpoint = this.serverEp.accept();
                   while (!endpoint.isReady()) Thread.sleep(10);
-                  logger.debug(
-                      ">>> Server accept connection of endpoint {}. CONNECTION READY", endpoint);
+                  if (RamcastConfig.LOG_ENABLED)
+                    logger.debug(
+                        ">>> Server accept connection of endpoint {}. CONNECTION READY", endpoint);
                 } catch (IOException | InterruptedException e) {
                   e.printStackTrace();
                   logger.error("Error accepting connection", e);
@@ -58,6 +74,9 @@ public class RamcastAgent {
             });
     listener.setName("ConnectionListener");
     listener.start();
+  }
+
+  public void establishConnections() throws Exception {
 
     this.endpointGroup.connect();
     while (true) {
@@ -86,11 +105,12 @@ public class RamcastAgent {
           .get()) break;
     }
 
-    logger.debug(
-        "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}",
-        this.node,
-        this.getEndpointMap().keySet(),
-        this.getEndpointMap().values());
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug(
+          "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}",
+          this.node,
+          this.getEndpointMap().keySet(),
+          this.getEndpointMap().values());
   }
 
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
@@ -112,17 +132,19 @@ public class RamcastAgent {
 
   public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
       throws IOException {
-    logger.debug("Multicasting to dest {} message {}", destinations, message);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug("Multicasting to dest {} message {}", destinations, message);
     for (RamcastGroup group : destinations) {
-
-        this.endpointGroup.writeMessage(group, message.toBuffer());
-
+      this.endpointGroup.writeMessage(group, message.toBuffer());
     }
-//    for (RamcastGroup group : destinations) {
-//      for (RamcastNode node : group.getMembers()) {
-//        this.endpointGroup.writeMessage(node, message.toBuffer());
-//      }
-//    }
+  }
+
+  public void multicast(ByteBuffer buffer, List<RamcastGroup> destinations) throws IOException {
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug("Multicasting to dest {} buffer {}", destinations, buffer);
+    for (RamcastGroup group : destinations) {
+      this.endpointGroup.writeMessage(group, buffer);
+    }
   }
 
   public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
@@ -149,13 +171,13 @@ public class RamcastAgent {
       List<RamcastEndpoint> eps = endpointGroup.getGroupEndpointsMap().get(group.getId());
       for (RamcastEndpoint ep : eps) {
         if (ep.getAvailableSlots() <= 0) return null;
-        tail =  ep.getRemoteCellBlock().getTailOffset();
+        tail = ep.getRemoteCellBlock().getTailOffset();
         break;
-//        if (tail < ep.getRemoteCellBlock().getTailOffset()
-//            && (available < ep.getAvailableSlots())) {
-//          tail = ep.getRemoteCellBlock().getTailOffset();
-//          available = ep.getAvailableSlots();
-//        }
+        //        if (tail < ep.getRemoteCellBlock().getTailOffset()
+        //            && (available < ep.getAvailableSlots())) {
+        //          tail = ep.getRemoteCellBlock().getTailOffset();
+        //          available = ep.getAvailableSlots();
+        //        }
       }
       ret[i++] = (short) tail;
     }
@@ -163,7 +185,7 @@ public class RamcastAgent {
   }
 
   public void close() throws IOException, InterruptedException {
-    logger.info("Agent of {} is closing down", this.node);
+    if (RamcastConfig.LOG_ENABLED) logger.info("Agent of {} is closing down", this.node);
     this.serverEp.close();
     this.endpointGroup.close();
     RamcastGroup.close();
@@ -180,5 +202,14 @@ public class RamcastAgent {
 
   public boolean isLeader() {
     return this.node.equals(leader);
+  }
+
+  public void deliver(RamcastMessage message) throws IOException {
+    onDeliverCallback.call(message);
+    this.endpointGroup.releaseMemory(message);
+  }
+
+  public boolean hasClientRole() {
+    return this.node.hasClientRole();
   }
 }

@@ -31,7 +31,7 @@ public class LeaderElectionProcessor {
       int groupId = buffer.getInt(4);
       int nodeId = buffer.getInt(8);
       int ballotNumnber = buffer.getInt(12);
-      logger.debug(
+      if (RamcastConfig.LOG_ENABLED) logger.debug(
           "[HS] Step Request Write permission Server Receiving: [{}/{}], ballot={}",
           groupId,
           nodeId,
@@ -44,7 +44,7 @@ public class LeaderElectionProcessor {
               && nodeId == this.group.getAgent().getNode().getNodeId())
           || (groupId != this.group.getAgent().getNode().getGroupId())
           || (this.group.getBallotNumber() < ballotNumnber)) {
-        logger.trace(
+        if (RamcastConfig.LOG_ENABLED) logger.trace(
             "[HS] received ballot [{}] greater than current ballot [{}]. Granting permission.",
             ballotNumnber,
             this.group.getBallotNumber());
@@ -70,7 +70,7 @@ public class LeaderElectionProcessor {
           buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
       acks.getAndIncrement();
       endpoint.setHasExchangedPermissionData(true);
-      logger.debug(
+      if (RamcastConfig.LOG_ENABLED) logger.debug(
           "[HS] Step Request Write permission CLIENT Receiving from {}: timestampBlock addr={} lkey={} capacity={} ack={}",
           endpoint.getNode(),
           buffer.getLong(4),
@@ -90,7 +90,7 @@ public class LeaderElectionProcessor {
     buffer.putInt(this.agent.getNode().getGroupId());
     buffer.putInt(this.agent.getNode().getNodeId());
     buffer.putInt(ballotNumber);
-    logger.debug(
+    if (RamcastConfig.LOG_ENABLED) logger.debug(
         "[HS] Step Request Write permission CLIENT Sending: to {} with data [{}/{}], ballot={}",
         endpoint.getNode(),
         buffer.getInt(4),

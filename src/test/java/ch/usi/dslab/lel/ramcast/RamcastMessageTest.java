@@ -29,11 +29,11 @@ public class RamcastMessageTest {
   Semaphore lock;
 
   static int groups = 1;
-  static int nodes = 2;
+  static int nodes = 3;
 
   @BeforeAll
   public static void setUp() throws Exception {
-//    Thread.sleep(10000);
+    //    Thread.sleep(10000);
     logger.info("Setting up for RamcastMessageTest");
     File configFile = new File("src/test/resources/systemConfig" + groups + "g" + nodes + "p.json");
     config = RamcastConfig.getInstance();
@@ -82,7 +82,7 @@ public class RamcastMessageTest {
     lock = new Semaphore(0);
   }
 
-//  @Test
+  //  @Test
   public void testCreatingMessage() {
     ByteBuffer buffer = ByteBuffer.allocateDirect(128);
     buffer.putInt(100);
@@ -106,8 +106,8 @@ public class RamcastMessageTest {
     assertEquals(1, message.getGroup(1));
   }
 
-  @Test
-  public void testWritingMessage() throws IOException, InterruptedException {
+//  @Test
+  public void testWritingMessageSync() throws IOException, InterruptedException {
 
     RamcastAgent agent0 = agents.get(RamcastNode.getNode(0, 0));
     ByteBuffer buffer = ByteBuffer.allocateDirect(128);
@@ -120,7 +120,7 @@ public class RamcastMessageTest {
       dests.add(RamcastGroup.getGroup(0));
       if (groups == 2) dests.add(RamcastGroup.getGroup(1));
       RamcastMessage message = agent0.createMessage(buffer, dests);
-      logger.debug("Created message: \n{}", message);
+//      logger.debug("Created message: \n{}", message);
       assertEquals(groups, message.getGroupCount());
       assertEquals(0, message.getGroup(0));
       for (RamcastAgent agent : agents.values()) {
@@ -147,6 +147,47 @@ public class RamcastMessageTest {
 
       agent0.multicast(message, dests);
       lock.acquire(groups * nodes);
+    }
+    Thread.sleep(1000);
+  }
+
+  @Test
+  public void testWritingMessageAsync() throws IOException, InterruptedException {
+
+    RamcastAgent agent0 = agents.get(RamcastNode.getNode(0, 0));
+    ByteBuffer buffer = ByteBuffer.allocateDirect(128);
+    for (int i = 1; i < 100; i++) {
+      buffer.clear();
+      buffer.putInt(i);
+      buffer.putChar('A');
+      buffer.putLong(10);
+      List<RamcastGroup> dests = new ArrayList<>();
+      dests.add(RamcastGroup.getGroup(0));
+      if (groups == 2) dests.add(RamcastGroup.getGroup(1));
+      RamcastMessage message = agent0.createMessage(buffer, dests);
+      logger.debug("Created message: \n{}", message);
+      assertEquals(groups, message.getGroupCount());
+      assertEquals(0, message.getGroup(0));
+      for (RamcastAgent agent : agents.values()) {
+        agent
+            .getEndpointGroup()
+            .setCustomHandler(
+                new CustomHandler() {
+                  @Override
+                  public void handleReceiveMessage(Object data) {
+                    RamcastMessage msg = (RamcastMessage) data;
+                    try {
+                      agent.getEndpointGroup().releaseMemory(msg);
+                    } catch (IOException e) {
+                      e.printStackTrace();
+                    }
+//                    lock.release();
+                  }
+                });
+      }
+
+      agent0.multicast(message, dests);
+//      lock.acquire(groups * nodes);
     }
     Thread.sleep(1000);
   }

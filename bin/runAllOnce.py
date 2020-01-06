@@ -36,7 +36,7 @@ else:
     PROFILING = False
 
 # RDMA config
-CONF_QUEUE_LENGTH = 5
+CONF_QUEUE_LENGTH = 32
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
@@ -59,14 +59,12 @@ java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
 if DEBUG:
-    log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/log4jDebug.xml'
+    log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/logback-debug.xml'
     java_cmd = java_cmd + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 else:
-    log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/log4j.xml'
-    log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/log4jDebug.xml'
-    java_cmd = java_cmd + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
+    log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/logback.xml'
 
-java_cmd = java_cmd + " -Dlog4j.configuration=file:" + log4j_conf
+java_cmd = java_cmd + " -Dlogback.configurationFile=" + log4j_conf
 
 java_cmd = java_cmd + common.JAVA_CLASSPATH
 
@@ -146,10 +144,10 @@ def run():
     common.localcmd(cmdString)
 
 
-# start Zookeeper cluster
-print "Starting Zookeeper..."
-common.localcmd(common.APP_ZK_SCRIPT_START)
-time.sleep(1)
+# # start Zookeeper cluster
+# print "Starting Zookeeper..."
+# common.localcmd(common.APP_ZK_SCRIPT_START)
+# time.sleep(1)
 
 gen_config()
 time.sleep(1)

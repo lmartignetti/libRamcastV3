@@ -195,16 +195,16 @@ public class RamcastMessage {
   public String toString() {
     StringBuilder ret = new StringBuilder();
     ret.append(this.getId())
-        .append("║")
+        .append("║l=")
         .append(this.getMessageLength())
         .append("║")
         .append(this.getMessage().getInt(0))
-        .append("..msg║")
+        .append("..msg║gs=")
         .append(this.getGroupCount())
         .append("║");
-    StringBuilder dests = new StringBuilder();
-    StringBuilder offset = new StringBuilder();
-    StringBuilder acks = new StringBuilder();
+    StringBuilder dests = new StringBuilder("g=");
+    StringBuilder offset = new StringBuilder("o=");
+    StringBuilder acks = new StringBuilder("ak=");
     for (int i = 0; i < this.getGroupCount(); i++) dests.append(this.getGroup(i)).append("│");
     for (int i = 0; i < this.getGroupCount(); i++) offset.append(this.getGroupSlot(i)).append("│");
 

@@ -97,12 +97,12 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void writeMessage(RamcastNode node, ByteBuffer buffer) throws IOException {
-    logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.nodeEndpointMap);
+    if (RamcastConfig.LOG_ENABLED) logger.debug("Write message to {}, buffer {}, ep {}", node, buffer, this.nodeEndpointMap);
     this.nodeEndpointMap.get(node).writeMessage(buffer);
   }
 
   public void writeMessage(RamcastGroup group, ByteBuffer buffer) throws IOException {
-    logger.debug(
+    if (RamcastConfig.LOG_ENABLED) logger.debug(
         "Write message to {}, buffer {}, ep {}",
         group,
         buffer,
@@ -130,7 +130,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     if (customHandler != null) customHandler.handleSendComplete(buffer);
   }
 
-  public void handleReceiveMessage(RamcastMessage message) {
+  public void handleReceiveMessage(RamcastMessage message) throws IOException {
     if (customHandler != null) customHandler.handleReceiveMessage(message);
     this.messageProcessor.handleMessage(message);
   }
@@ -147,13 +147,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     this.currentBallotNumber.incrementAndGet();
     for (RamcastEndpoint endpoint : this.getNodeEndpointMap().values()) {
       this.leaderElectionProcessor.requestWritePermission(endpoint, this.currentBallotNumber.get());
-      logger.debug(">>> Client exchanged permission data to: {}.", endpoint.getNode());
+      if (RamcastConfig.LOG_ENABLED) logger.debug(">>> Client exchanged permission data to: {}.", endpoint.getNode());
     }
     // wait for receiving acks from all nodes
     while (this.leaderElectionProcessor.getAcks().get()
         // todo: find nicer way for -1
         != RamcastConfig.getInstance().getTotalNodeCount()) Thread.sleep(10);
-    logger.debug(
+    if (RamcastConfig.LOG_ENABLED) logger.debug(
         ">>> Client FINISHED exchanging permission to {} nodes.",
         this.leaderElectionProcessor.getAcks().get());
   }
@@ -164,36 +164,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         new Thread(
             () -> {
               MDC.setContextMap(contextMap);
-              logger.info("Polling for incoming data");
+              if (RamcastConfig.LOG_ENABLED) logger.info("Polling for incoming data");
               while (true) {
-                //                groupEndpointsMap
-                //                    .values()
-                //                    .forEach(
-                //                        (eps) -> {
-                //                          eps.forEach(
-                //                              ep -> {
-                //                                if (ep != null) {
-                //                                  ep.pollForData();
-                //                                }
-                //                              });
-                //                        });
-
-                //                for (Map.Entry<RamcastNode, RamcastEndpoint> e :
-                // nodeEndpointMap.entrySet()) {
-                //                  RamcastEndpoint endpoint = e.getValue();
-                //                  if (endpoint != null) {
-                //                    endpoint.pollForData();
-                //                  }
-                //                }
-
-                this.incomingEndpointMap
-                    .values()
-                    .forEach(
-                        (e) -> {
-                          if (e != null) {
-                            e.pollForData();
-                          }
-                        });
+                for (RamcastEndpoint e : this.incomingEndpointMap.values()) {
+                  if (e != null) {
+                    e.pollForData();
+                  }
+                }
                 Thread.yield();
               }
             });
@@ -206,16 +183,16 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     int freed = memoryBlock.freeSlot(message.getSlot());
     RamcastEndpoint endpoint = message.getMemoryBlock().getEndpoint();
     if (freed == 0) {
-      logger.debug(
+      if (RamcastConfig.LOG_ENABLED) logger.debug(
           "[{}] Can't release memory slot. There are pending slots", endpoint.getEndpointId());
       return;
     }
-    logger.trace(
+    if (RamcastConfig.LOG_ENABLED) logger.trace(
         "[{}] SERVER MEMORY after releasing memory: {}",
         endpoint.getEndpointId(),
         endpoint.getSharedCellBlock());
 
-    logger.debug(
+    if (RamcastConfig.LOG_ENABLED) logger.debug(
         "[{}] Released memory of {} slot. Update client [{}].", message.getId(), freed, endpoint);
     message.reset();
     this.writeRemoteHeadOnClient(endpoint, freed);
@@ -300,10 +277,10 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   @Override
   public RdmaCqProvider createCqProvider(RamcastEndpoint endpoint) throws IOException {
-    logger.trace("setting up cq processor");
+    if (RamcastConfig.LOG_ENABLED) logger.trace("setting up cq processor");
     IbvContext context = endpoint.getIdPriv().getVerbs();
     if (context != null) {
-      logger.trace("setting up cq processor, context found");
+      if (RamcastConfig.LOG_ENABLED) logger.trace("setting up cq processor, context found");
       RamcastCqProcessor<RamcastEndpoint> cqProcessor;
       int key = context.getCmd_fd();
       if (!cqMap.containsKey(key)) {
@@ -328,7 +305,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     RamcastCqProcessor<RamcastEndpoint> cqProcessor = cqMap.get(context.getCmd_fd());
     IbvCQ cq = cqProcessor.getCQ();
     IbvQP qp = this.createQP(endpoint.getIdPriv(), endpoint.getPd(), cq);
-    logger.trace("registering endpoint with cq");
+    if (RamcastConfig.LOG_ENABLED) logger.trace("registering endpoint with cq");
     cqProcessor.registerQP(qp.getQp_num(), endpoint);
     return qp;
   }
@@ -354,7 +331,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     // A node only connect to node with bigger ids.
     for (RamcastNode node : RamcastGroup.getAllNodes()) {
       if (node.getOrderId() >= this.agent.getNode().getOrderId()) {
-        logger.debug("connecting to: {}", node);
+        if (RamcastConfig.LOG_ENABLED) logger.debug("connecting to: {}", node);
         RamcastEndpoint endpoint = this.createEndpoint();
         endpoint.connect(node.getInetAddress(), config.getTimeout());
         endpoint.setNode(node);
@@ -368,7 +345,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         }
         this.initHandshaking(endpoint);
         while (!endpoint.isReady()) Thread.sleep(10);
-        logger.debug(">>> Client connected to: {}. CONNECTION READY", endpoint);
+        if (RamcastConfig.LOG_ENABLED) logger.debug(">>> Client connected to: {}. CONNECTION READY", endpoint);
       }
     }
   }
@@ -383,7 +360,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       // and are not leader
       if (ramcastEndpoint.getNode().getGroupId() == this.agent.getNode().getGroupId()
           && !ramcastEndpoint.getNode().isLeader()) {
-        logger.debug(
+        if (RamcastConfig.LOG_ENABLED) logger.debug(
             "Revoking write permission of {} on {}",
             ramcastEndpoint.getNode(),
             this.agent.getNode());
@@ -422,12 +399,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
     @Override
     public void dispatchCqEvent(RamcastEndpoint endpoint, IbvWC wc) throws IOException {
-      if (contextMap != null) {
-        MDC.setContextMap(contextMap); // set contextMap when thread start
-      } else {
-        MDC.clear();
+      if (RamcastConfig.LOG_ENABLED) {
+        if (contextMap != null) {
+          MDC.setContextMap(contextMap); // set contextMap when thread start
+        } else {
+          MDC.clear();
+        }
       }
-      //      logger.trace("dispatch cq event, wrId={}", wc.getWr_id());
       endpoint.dispatchCqEvent(wc);
     }
   }

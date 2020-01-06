@@ -21,15 +21,19 @@
 
 package ch.usi.dslab.lel.ramcast.benchmark;
 
+import ch.usi.dslab.bezerra.sense.DataGatherer;
+import ch.usi.dslab.bezerra.sense.monitors.LatencyPassiveMonitor;
+import ch.usi.dslab.bezerra.sense.monitors.ThroughputPassiveMonitor;
+import ch.usi.dslab.lel.ramcast.MessageDeliveredCallback;
 import ch.usi.dslab.lel.ramcast.RamcastAgent;
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
 import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
 import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
-import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +42,8 @@ import java.util.concurrent.Semaphore;
 public class BenchAgent {
   private static final Logger logger = LoggerFactory.getLogger(BenchAgent.class);
   Semaphore sendPermits;
+  private ThroughputPassiveMonitor tpMonitor;
+  private LatencyPassiveMonitor latMonitor;
 
   private RamcastConfig config;
   private RamcastAgent agent;
@@ -46,8 +52,27 @@ public class BenchAgent {
   private List<RamcastGroup> _dests;
   private long startTime;
   private ByteBuffer responseBuffer;
-  private ByteBuffer samepleBuffer;
+  private ByteBuffer sampleBuffer;
   private int msgCount;
+
+  private MessageDeliveredCallback onDeliverAmcast =
+      new MessageDeliveredCallback() {
+        @Override
+        public void call(Object data) {
+          if (agent.hasClientRole()) {
+            if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
+              releasePermit();
+              //              System.out.println(
+              //                  ">>>>>> "
+              //                      + agent.getNode()
+              //                      + " == "
+              //                      + (System.nanoTime() - startTime));
+              latMonitor.logLatency(startTime, System.nanoTime());
+              tpMonitor.incrementCount();
+            }
+          }
+        }
+      };
 
   public static void main(String[] args) throws Exception {
     //        Thread.sleep(5000);
@@ -106,7 +131,7 @@ public class BenchAgent {
 
     int nodeId = Integer.parseInt(line.getOptionValue(nIdOption.getOpt()));
     int groupId = Integer.parseInt(line.getOptionValue(gIdOption.getOpt()));
-    int clientId = Integer.parseInt(line.getOptionValue(cIdOption.getOpt()));
+    clientId = Integer.parseInt(line.getOptionValue(cIdOption.getOpt()));
     String configFile = line.getOptionValue(configOption.getOpt());
     int payloadSize = Integer.parseInt(line.getOptionValue(packageSizeOption.getOpt()));
     String gathererHost = line.getOptionValue(gathererHostOption.getOpt());
@@ -120,28 +145,50 @@ public class BenchAgent {
     config.loadConfig(configFile);
     config.setPayloadSize(payloadSize);
 
-    this.agent = new RamcastAgent(groupId, nodeId);
+    this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
+    if (this.agent.hasClientRole()) {
+      DataGatherer.configure(
+          experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
+      this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
+      this.latMonitor = new LatencyPassiveMonitor(this.clientId, "client_overall", true);
+    }
+
+    this.agent.bind();
+    Thread.sleep(3000);
     this.agent.establishConnections();
 
     logger.info("NODE READY");
 
+    this.startBenchmark();
+  }
+
+  private void startBenchmark() throws IOException, InterruptedException {
+    System.out.println("Node " + this.agent.getNode() + " start benchmarking");
+    sendPermits = new Semaphore(1);
+
     ByteBuffer buffer = ByteBuffer.allocateDirect(64);
-    buffer.putInt(10);
+    buffer.putInt(clientId);
     buffer.putInt(11);
     buffer.putInt(12);
 
     List<RamcastGroup> dest = new ArrayList<>();
-    dest.add(RamcastGroup.getGroup(0));
-    if (this.agent.getNode().getNodeId() == 0) {
-      RamcastMessage msg = this.agent.createMessage(buffer, dest);
-      this.agent.multicast(msg, dest);
-//      this.agent.getEndpointGroup().writeMessage(RamcastNode.getNode(0, 1), buffer);
-//      //      for (int i = 0; i < 1; i++)
-//              this.agent
-//                  .getEndpointGroup()
-//                  .updateRemoteHeadOnClient(
-//                      this.agent.getEndpointMap().get(RamcastNode.getNode(0, 1)), 10);
+    for (int i = 0; i < RamcastConfig.getInstance().getGroupCount(); i++) {
+      dest.add(RamcastGroup.getGroup(i));
+    }
+    RamcastMessage sampleMessage;
+    ByteBuffer sampleBuffer;
+    int i = 0;
+    sampleMessage = this.agent.createMessage(buffer, dest);
+    this.sampleBuffer = sampleMessage.toBuffer();
+    if (this.agent.hasClientRole()) {
+      while (true) {
+        getPermit();
+        this.sampleBuffer.putInt(0, i);
+        startTime = System.nanoTime();
+        if (RamcastConfig.LOG_ENABLED) logger.debug("Client {} start new request {}", clientId, i);
+        this.agent.multicast(this.sampleBuffer, dest);
+      }
     }
   }
 }

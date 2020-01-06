@@ -1,11 +1,11 @@
 #!/usr/bin/python
 import common
 
-NUM_GROUPS = 1
-NUM_PROCESSES = [3]
-NUM_CLIENTS = [3]
+NUM_GROUPS = 2
+NUM_PROCESSES = [2]
+NUM_CLIENTS = [4]
 
-NUM_DEST = 1
+NUM_DEST = 2
 DURATION = 60
 WARMUP = 20
 
