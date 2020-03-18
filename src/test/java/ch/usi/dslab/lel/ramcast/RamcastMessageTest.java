@@ -53,6 +53,7 @@ public class RamcastMessageTest {
                   try {
                     RamcastAgent agent = new RamcastAgent(finalG, finalP);
                     agents.put(RamcastNode.getNode(finalG, finalP), agent);
+                    agent.bind();
                     agent.establishConnections();
                   } catch (Exception e) {
                     e.printStackTrace();

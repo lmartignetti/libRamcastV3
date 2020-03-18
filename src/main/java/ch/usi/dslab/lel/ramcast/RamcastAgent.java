@@ -32,11 +32,8 @@ public class RamcastAgent {
     this(
         groupId,
         nodeId,
-        new MessageDeliveredCallback() {
-          @Override
-          public void call(Object data) {
-            if (RamcastConfig.LOG_ENABLED) logger.debug("Delivered message {}", data);
-          }
+        data -> {
+          if (RamcastConfig.LOG_ENABLED) logger.debug("Delivered message {}", data);
         });
   }
 
@@ -45,9 +42,6 @@ public class RamcastAgent {
     MDC.put("ROLE", groupId + "/" + nodeId);
     this.node = RamcastNode.getNode(groupId, nodeId);
     this.onDeliverCallback = onDeliverCallback;
-
-    // temp for setting a leader;
-    this.leader = RamcastNode.getNode(groupId, 0);
   }
 
   public void bind() throws Exception {
@@ -82,14 +76,14 @@ public class RamcastAgent {
     while (true) {
       Thread.sleep(10);
       // todo: find nicer way for -1
-      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()) continue;
+      if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
       if (this.getEndpointMap().values().stream()
           .map(RamcastEndpoint::isReady)
           .reduce(Boolean::logicalAnd)
           .get()) break;
     }
 
-    if (this.isLeader()) {
+    if (this.shouldBeLeader()) {
       this.endpointGroup.requestWritePermission();
     }
 
@@ -98,7 +92,8 @@ public class RamcastAgent {
     while (true) {
       Thread.sleep(10);
       // todo: find nicer way for -1
-      if (this.getEndpointMap().keySet().size() != config.getTotalNodeCount()) continue;
+      if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
+      if (this.leader == null) continue;
       if (this.getEndpointMap().values().stream()
           .map(RamcastEndpoint::hasExchangedPermissionData)
           .reduce(Boolean::logicalAnd)
@@ -107,10 +102,11 @@ public class RamcastAgent {
 
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-          "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}",
+          "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}, leader {}",
           this.node,
           this.getEndpointMap().keySet(),
-          this.getEndpointMap().values());
+          this.getEndpointMap().values(),
+          this.leader);
   }
 
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
@@ -139,19 +135,19 @@ public class RamcastAgent {
     }
   }
 
-  public void multicast(ByteBuffer buffer, List<RamcastGroup> destinations) throws IOException {
-    if (RamcastConfig.LOG_ENABLED)
-      logger.debug("Multicasting to dest {} buffer {}", destinations, buffer);
-    for (RamcastGroup group : destinations) {
-      this.endpointGroup.writeMessage(group, buffer);
-    }
-  }
+  //  public void multicast(ByteBuffer buffer, List<RamcastGroup> destinations) throws IOException {
+  //    if (RamcastConfig.LOG_ENABLED)
+  //      logger.debug("Multicasting to dest {} buffer {}", destinations, buffer);
+  //    for (RamcastGroup group : destinations) {
+  //      this.endpointGroup.writeMessage(group, buffer);
+  //    }
+  //  }
 
-  public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
+  public RamcastMessage createMessage(
+      int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
     int[] groups = new int[destinations.size()];
     destinations.forEach(group -> groups[destinations.indexOf(group)] = group.getId());
     RamcastMessage message = new RamcastMessage(buffer, groups);
-    int msgId = Objects.hash(this.node.getOrderId());
     message.setId(msgId);
     short[] slots = getRemoteSlots(destinations);
     while (slots == null) {
@@ -160,6 +156,10 @@ public class RamcastAgent {
     }
     message.setSlots(slots);
     return message;
+  }
+
+  public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
+    return createMessage(Objects.hash(this.node.getOrderId()), buffer, destinations);
   }
 
   private short[] getRemoteSlots(List<RamcastGroup> destinations) {
@@ -191,10 +191,14 @@ public class RamcastAgent {
     RamcastGroup.close();
   }
 
-  public void setLeader(RamcastNode node) throws IOException {
-    this.leader = node;
+  public void setLeader(int groupId, int nodeId) throws IOException {
+    RamcastNode.removeLeader(groupId);
+    RamcastNode node = RamcastNode.getNode(groupId, nodeId);
+    assert node != null;
+    node.setLeader(true);
+    if (groupId == this.getGroupId()) this.leader = node;
     // if this is the new leader
-    if (this.leader.equals(this.node)) {
+    if (this.leader != null && this.leader.equals(this.node)) {
       // need to revoke permission of old leader
       this.getEndpointGroup().revokeTimestampWritePermission();
     }
@@ -204,12 +208,40 @@ public class RamcastAgent {
     return this.node.equals(leader);
   }
 
+  public boolean shouldBeLeader() {
+    return this.node.getNodeId() == this.getNode().getGroup().getLeaderId();
+  }
+
   public void deliver(RamcastMessage message) throws IOException {
+    endpointGroup.updateTsStatus(message);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug(
+          "[{}] Delivered at ts {} !!! {}, ts {}",
+          message.getId(),
+          message.getFinalTs(),
+          message,
+          endpointGroup.getTimestampBlock());
     onDeliverCallback.call(message);
+    // update FUO
+    // todo: enable this
     this.endpointGroup.releaseMemory(message);
   }
 
   public boolean hasClientRole() {
     return this.node.hasClientRole();
+  }
+
+  public int getGroupId() {
+    return this.node.getGroupId();
+  }
+
+  public boolean isAllDestReady(List<RamcastGroup> dests, int msgId) {
+    for (RamcastGroup group : dests) {
+      if (!endpointGroup.allEndpointReady(group.getId(), msgId)) {
+        if (RamcastConfig.LOG_ENABLED) logger.trace("Group {} is not ready", group.getId());
+        return false;
+      }
+    }
+    return true;
   }
 }

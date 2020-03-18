@@ -26,7 +26,7 @@ DESTINATION_COUNT = common.iarg(4)
 
 DURATION = common.iarg(5)
 WARMUP = common.iarg(6)
-PAYLOAD_SIZE = 96 #196
+PAYLOAD_SIZE = 96  # 196
 
 if len(sys.argv) == 9:
     DEBUG = common.barg(7)
@@ -36,13 +36,13 @@ else:
     PROFILING = False
 
 # RDMA config
-CONF_QUEUE_LENGTH = 32
+CONF_QUEUE_LENGTH = 3
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
 CONF_MAX_INLINE = 64
 CONF_PORT = 9000
-CONF_SIGNAL_INTERVAL = 2
+CONF_SIGNAL_INTERVAL = 16
 
 ROLE_CLIENT = 1
 ROLE_SERVER = 2
@@ -52,6 +52,7 @@ RDMA_NODES = common.RDMA_NODES
 
 CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"
 
+debug_log_dir = '{}/bin'.format(common.PATH_LIBRAMCAST_HOME)
 log_dir = '{}/logs/{}c-{}g-{}p-{}'.format(common.PATH_LIBRAMCAST_HOME, NUM_CLIENTS, NUM_GROUPS, NUM_PROCESSES,
                                           datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -Xms3g -Xmx3g"
@@ -122,7 +123,8 @@ def run():
     g = 0
 
     while i < node_used:
-        cmd = [java_cmd, '-DGROUPID=' + str(g), '-DNODEID=' + str(p), CLASS_BENCH, "-c", config_file,
+        cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, '-DGROUPID=' + str(g), '-DNODEID=' + str(p), CLASS_BENCH, "-c",
+               config_file,
                "-gid", g, "-nid", p, "-cid", i + 1, "-s", PAYLOAD_SIZE, "-dc", DESTINATION_COUNT,
                "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",
                WARMUP * 1000]

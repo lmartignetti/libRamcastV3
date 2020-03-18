@@ -36,13 +36,14 @@ public class HandshakingProcessor {
     buffer.putLong(block.getAddress());
     buffer.putInt(block.getLkey());
     buffer.putInt(block.getCapacity());
-    if (RamcastConfig.LOG_ENABLED) logger.debug(
-        "[HS] Step 1 CLIENT Sending: group={}, node= {}, remoteHeadBlock addr={} lkey={} capacity={}",
-        buffer.getInt(4),
-        buffer.getInt(8),
-        buffer.getLong(12),
-        buffer.getInt(20),
-        buffer.getInt(24));
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug(
+          "[HS] Step 1 CLIENT Sending: group={}, node= {}, remoteHeadBlock addr={} lkey={} capacity={}",
+          buffer.getInt(4),
+          buffer.getInt(8),
+          buffer.getLong(12),
+          buffer.getInt(20),
+          buffer.getInt(24));
     endpoint.send(buffer);
   }
 
@@ -50,13 +51,14 @@ public class HandshakingProcessor {
       throws IOException {
     int ticket = buffer.getInt(0);
     if (ticket == RamcastConfig.MSG_HS_C1) { // msg step 1 sent from client
-      if (RamcastConfig.LOG_ENABLED) logger.debug(
-          "[HS] Step 1 SERVER Receiving: group={}, node= {}, remoteHeadBlock addr={} lkey={} capacity={}",
-          buffer.getInt(4),
-          buffer.getInt(8),
-          buffer.getLong(12),
-          buffer.getInt(20),
-          buffer.getInt(24));
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 SERVER Receiving from [{}/{}] remoteHeadBlock addr={} lkey={} capacity={}",
+            buffer.getInt(4),
+            buffer.getInt(8),
+            buffer.getLong(12),
+            buffer.getInt(20),
+            buffer.getInt(24));
       // store this endpoint information
       int groupId = buffer.getInt(4);
       int nodeId = buffer.getInt(8);
@@ -68,9 +70,10 @@ public class HandshakingProcessor {
       // store address of the memory space to store remote head on client
       endpoint.setClientMemoryBlockOfRemoteHead(
           buffer.getLong(12), buffer.getInt(20), buffer.getInt(24));
-      if (RamcastConfig.LOG_ENABLED) logger.debug(
-          "[HS] Step 1 SERVER setClientMemoryBlockOfRemoteHead={}",
-          endpoint.getRemoteServerHeadBlock());
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 SERVER setClientMemoryBlockOfRemoteHead={}",
+            endpoint.getRemoteServerHeadBlock());
       // send back to client data of the whole shared memory space
       RamcastMemoryBlock sharedCircularMemoryBlock = endpoint.getSharedCircularBlock();
       //      RamcastMemoryBlock sharedTimestampMemoryBlock = endpoint.getSharedTimestampBlock();
@@ -100,16 +103,18 @@ public class HandshakingProcessor {
       //      response.putInt(sharedTimestampMemoryBlock.getLkey());
       //      response.putInt(sharedTimestampMemoryBlock.getCapacity());
 
-      if (RamcastConfig.LOG_ENABLED)  logger.debug(
-          "[HS] Step 1 SERVER Sending: sharedCircularMemoryBlock={} memorySegmentBlock={}",
-          sharedCircularMemoryBlock,
-          memorySegmentBlock);
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 SERVER Sending []: sharedCircularMemoryBlock={} memorySegmentBlock={}",
+            sharedCircularMemoryBlock,
+            memorySegmentBlock);
 
       endpoint.send(response);
       endpoint.setHasExchangedServerData(true);
 
       // storing all incomming endpoints
       this.group.getIncomingEndpointMap().put(endpoint.getEndpointId(), endpoint);
+      this.group.getIncomingEndpoints().add( endpoint);
 
       // if this connection is not from the node itself => add it as outgoing conn
       boolean exists = this.group.getNodeEndpointMap().get(node) != null;
@@ -124,23 +129,27 @@ public class HandshakingProcessor {
       if (endpoint.getNode().equals(this.agent.getNode())) endpoint.setHasExchangedClientData(true);
       if (!endpoint.hasExchangedClientData()) this.initHandshaking(endpoint);
     } else if (ticket == RamcastConfig.MSG_HS_S1) { // msg step 1 sent from server
-      if (RamcastConfig.LOG_ENABLED) logger.debug(
-          "[HS] Step 1 CLIENT Receiving: sharedBlock addr={} lkey={} capacity={} sharedSegment addr={} lkey={} capacity={}",
-          buffer.getLong(4),
-          buffer.getInt(12),
-          buffer.getInt(16),
-          buffer.getLong(20),
-          buffer.getInt(28),
-          buffer.getInt(32));
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 CLIENT Receiving from [{}] sharedBlock addr={} lkey={} capacity={} sharedSegment addr={} lkey={} capacity={}",
+            endpoint.getNode(),
+            buffer.getLong(4),
+            buffer.getInt(12),
+            buffer.getInt(16),
+            buffer.getLong(20),
+            buffer.getInt(28),
+            buffer.getInt(32));
 
-      endpoint.setRemoteSharedMemoryBlock(buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
+      endpoint.setRemoteCircularBlock(buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
       endpoint.setRemoteSharedMemoryCellBlock(
           buffer.getLong(20), buffer.getInt(28), buffer.getInt(32));
-      if (RamcastConfig.LOG_ENABLED)  logger.debug(
-          "[HS] Step 1 CLIENT. setRemoteSharedMemoryBlock={}", endpoint.getRemoteCircularBlock());
-      if (RamcastConfig.LOG_ENABLED) logger.debug(
-          "[HS] Step 1 CLIENT. setRemoteSharedMemoryCellBlock={}",
-          endpoint.getRemoteSharedMemoryCellBlock());
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 CLIENT. setRemoteSharedMemoryBlock={}", endpoint.getRemoteCircularBlock());
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+            "[HS] Step 1 CLIENT. setRemoteSharedMemoryCellBlock={}",
+            endpoint.getRemoteSharedMemoryCellBlock());
 
       endpoint.setHasExchangedClientData(true);
       if (endpoint.getNode().equals(this.agent.getNode())) endpoint.setHasExchangedServerData(true);
@@ -149,21 +158,21 @@ public class HandshakingProcessor {
       throw new IOException("Protocol msg code not found :" + ticket);
     }
   }
-
-  public void requestWritePermission(RamcastEndpoint endpoint, int ballotNumber)
-      throws IOException {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(16);
-    buffer.putInt(RamcastConfig.MSG_HS_C_GET_WRITE);
-    buffer.putInt(this.agent.getNode().getGroupId());
-    buffer.putInt(this.agent.getNode().getNodeId());
-    buffer.putInt(ballotNumber);
-    if (RamcastConfig.LOG_ENABLED) logger.debug(
-        "[HS] Step Request Write permission CLIENT Sending: [{}/{}], ballot={}",
-        buffer.getInt(4),
-        buffer.getInt(8),
-        buffer.getInt(12));
-    endpoint.send(buffer);
-  }
+  //
+  //  public void requestWritePermission(RamcastEndpoint endpoint, int ballotNumber)
+  //      throws IOException {
+  //    ByteBuffer buffer = ByteBuffer.allocateDirect(16);
+  //    buffer.putInt(RamcastConfig.MSG_HS_C_GET_WRITE);
+  //    buffer.putInt(this.agent.getNode().getGroupId());
+  //    buffer.putInt(this.agent.getNode().getNodeId());
+  //    buffer.putInt(ballotNumber);
+  //    if (RamcastConfig.LOG_ENABLED) logger.debug(
+  //        "[HS] Step Request Write permission CLIENT Sending: [{}/{}], ballot={}",
+  //        buffer.getInt(4),
+  //        buffer.getInt(8),
+  //        buffer.getInt(12));
+  //    endpoint.send(buffer);
+  //  }
 
   public RamcastMemoryBlock getNodeMemorySegmentBlock(
       ByteBuffer sharedBuffer, int lkey, int groupId, int nodeId) {

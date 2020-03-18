@@ -25,29 +25,35 @@ public class RamcastEndpointVerbCall {
   protected ByteBuffer[] writeBufs;
   protected ByteBuffer[] readBufs;
   protected ByteBuffer[] updateBufs;
+  protected ByteBuffer readTsBuf;
   protected SVCPostRecv[] recvCall;
   protected SVCPostSend[] sendCall;
   protected SVCPostSend[] writeCall;
   protected SVCPostSend[] readCall;
   protected SVCPostSend[] updateCall;
+  protected SVCPostSend readTsCall;
   protected LinkedBlockingQueue<SVCPostSend> freeSendPostSend;
   protected LinkedBlockingQueue<SVCPostSend> freeWritePostSend;
   protected LinkedBlockingQueue<SVCPostSend> freeUpdatePostSend;
+  protected LinkedBlockingQueue<SVCPostSend> freeReadPostSend;
   protected Map<Integer, SVCPostSend> pendingSendPostSend;
   protected Map<Integer, SVCPostSend> pendingWritePostSend;
   protected Map<Integer, SVCPostSend> pendingUpdatePostSend;
+  protected Map<Integer, SVCPostSend> pendingReadPostSend;
   RamcastEndpoint endpoint;
   private RamcastConfig config = RamcastConfig.getInstance();
   private IbvMr dataMr;
   private int queueLength;
   private int packageSize;
   private int signalSize;
+  private int tsBlockSize;
 
   public RamcastEndpointVerbCall(RamcastEndpoint endpoint) throws IOException {
     this.endpoint = endpoint;
     this.queueLength = config.getQueueLength();
     this.packageSize = RamcastConfig.SIZE_MESSAGE;
     this.signalSize = RamcastConfig.SIZE_SIGNAL;
+    this.tsBlockSize = endpoint.getEndpointGroup().getTimestampBlock().getCapacity();
 
     this.recvBufs = new ByteBuffer[queueLength];
     this.sendBufs = new ByteBuffer[queueLength];
@@ -63,6 +69,7 @@ public class RamcastEndpointVerbCall {
     this.freeSendPostSend = new LinkedBlockingQueue<>(queueLength);
     this.freeWritePostSend = new LinkedBlockingQueue<>(queueLength);
     this.freeUpdatePostSend = new LinkedBlockingQueue<>(queueLength);
+    this.freeReadPostSend = new LinkedBlockingQueue<>(queueLength);
     this.pendingSendPostSend = new ConcurrentHashMap<>();
     this.pendingWritePostSend = new ConcurrentHashMap<>();
     this.pendingUpdatePostSend = new ConcurrentHashMap<>();
@@ -73,10 +80,11 @@ public class RamcastEndpointVerbCall {
     ByteBuffer writeBuffer;
     ByteBuffer readBuffer;
     ByteBuffer updateBuffer;
+    ByteBuffer readTsBuffer;
 
     // we use only one memory buffer for RDMA verbs send/recv/read/write and update
     ByteBuffer dataBuffer =
-        ByteBuffer.allocateDirect(packageSize * queueLength * 4 + queueLength * signalSize);
+        ByteBuffer.allocateDirect(packageSize * queueLength * 4 + queueLength * signalSize + tsBlockSize);
     /* Only do one memory registration with the IB card. */
     dataMr = endpoint.registerMemory(dataBuffer).execute().free().getMr();
 
@@ -106,6 +114,14 @@ public class RamcastEndpointVerbCall {
     dataBuffer.position(updateBufferOffset);
     dataBuffer.limit(dataBuffer.position() + queueLength * signalSize);
     updateBuffer = dataBuffer.slice();
+
+    /* Special memory region for reading Timestamp block for leader election */
+    int readTsBufferOffset = updateBufferOffset + (queueLength * signalSize);
+    dataBuffer.position(readTsBufferOffset);
+    dataBuffer.limit(
+        dataBuffer.position() + tsBlockSize);
+    readTsBuf = dataBuffer.slice();
+    readTsCall = setupReadTsTask();
 
     for (int i = 0; i < queueLength; i++) {
       /* Create single receive buffers within the receive region in form of slices. */
@@ -139,6 +155,7 @@ public class RamcastEndpointVerbCall {
       freeSendPostSend.add(sendCall[i]);
       freeWritePostSend.add(writeCall[i]);
       freeUpdatePostSend.add(updateCall[i]);
+      freeReadPostSend.add(readCall[i]);
 
       recvCall[i].execute();
     }
@@ -201,6 +218,27 @@ public class RamcastEndpointVerbCall {
     return this.endpoint.postSend(readWRs);
   }
 
+  private SVCPostSend setupReadTsTask() throws IOException {
+    ArrayList<IbvSendWR> readWRs = new ArrayList<>(1);
+    LinkedList<IbvSge> sgeList = new LinkedList<>();
+
+    IbvSge sge = new IbvSge();
+
+    sge.setAddr(MemoryUtils.getAddress(readTsBuf));
+    sge.setLength(tsBlockSize);
+    sge.setLkey(dataMr.getLkey());
+    sgeList.add(sge);
+
+    IbvSendWR readWR = new IbvSendWR();
+    readWR.setSg_list(sgeList);
+    readWR.setWr_id(1000);
+    readWR.setOpcode(IbvSendWR.IbvWrOcode.IBV_WR_RDMA_READ.ordinal());
+    readWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
+    readWRs.add(readWR);
+
+    return this.endpoint.postSend(readWRs);
+  }
+
   private SVCPostSend setupSendTask(int wrid) throws IOException {
     ArrayList<IbvSendWR> sendWRs = new ArrayList<>(1);
     LinkedList<IbvSge> sgeList = new LinkedList<>();
@@ -244,7 +282,8 @@ public class RamcastEndpointVerbCall {
     if (sendOperation == null) {
       throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
-    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back send postsend", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("[{}/{}] adding back send postsend", this.endpoint.getEndpointId(), index);
     this.freeSendPostSend.add(sendOperation);
   }
 
@@ -253,25 +292,27 @@ public class RamcastEndpointVerbCall {
     if (sendOperation == null) {
       throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
-    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back write postsend", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("[{}/{}] adding back write postsend", this.endpoint.getEndpointId(), index);
     this.freeWritePostSend.add(sendOperation);
   }
 
   public void freeUpdate(int index) throws IOException {
-//    while (pendingUpdatePostSend.size() > 0) {
-//      int i = pendingUpdatePostSend.keySet().iterator().next();
-      SVCPostSend sendOperation =
-          pendingUpdatePostSend.remove(index);
-      if (sendOperation == null) {
-        throw new IOException(this.endpoint.getNode() + " no pending index " + index);
-      }
-    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);
-      this.freeUpdatePostSend.add(sendOperation);
-//    }
+    //    while (pendingUpdatePostSend.size() > 0) {
+    //      int i = pendingUpdatePostSend.keySet().iterator().next();
+    SVCPostSend sendOperation = pendingUpdatePostSend.remove(index);
+    if (sendOperation == null) {
+      throw new IOException(this.endpoint.getNode() + " no pending index " + index);
+    }
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);
+    this.freeUpdatePostSend.add(sendOperation);
+    //    }
   }
 
   protected void postRecv(int index) throws IOException {
-    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}/{}] execute postrecv", this.endpoint.getEndpointId(), index);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("[{}/{}] execute postrecv", this.endpoint.getEndpointId(), index);
     recvCall[index].execute();
   }
 

@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 
 public class BenchAgent {
@@ -59,16 +60,43 @@ public class BenchAgent {
       new MessageDeliveredCallback() {
         @Override
         public void call(Object data) {
+          //          System.out.println(
+          //              ">>>>>> "
+          //                  //                  + agent.getNode()
+          //                  + " == "
+          //                  + ((RamcastMessage) data).getId()
+          //                  + " == "
+          //                  + (System.nanoTime() - startTime)
+          //              //                                + "\n"
+          //              //                                + (RamcastMessage) data
+          //              //                                + "\n"
+          //              //                                +
+          // agent.getEndpointGroup().getTimestampBlock()
+          //              );
+
           if (agent.hasClientRole()) {
             if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
               releasePermit();
-              //              System.out.println(
-              //                  ">>>>>> "
-              //                      + agent.getNode()
-              //                      + " == "
-              //                      + (System.nanoTime() - startTime));
+              System.out.println(
+                  ">>>>>> "
+                      + agent.getNode()
+                      + " == "
+                      + ((RamcastMessage) data).getId()
+                      + " == "
+                      + (System.nanoTime() - startTime)
+                  //                                                  + "\n"
+                  //                                                  + (RamcastMessage) data
+                  //                                                  + "\n"
+                  //                                                  +
+                  // agent.getEndpointGroup().getTimestampBlock()
+                  );
               latMonitor.logLatency(startTime, System.nanoTime());
               tpMonitor.incrementCount();
+                            try {
+                              Thread.sleep(1000);
+                            } catch (InterruptedException e) {
+                              e.printStackTrace();
+                            }
             }
           }
         }
@@ -155,10 +183,10 @@ public class BenchAgent {
     }
 
     this.agent.bind();
-    Thread.sleep(3000);
+    Thread.sleep(1000);
     this.agent.establishConnections();
-
     logger.info("NODE READY");
+    Thread.sleep(3000);
 
     this.startBenchmark();
   }
@@ -167,7 +195,7 @@ public class BenchAgent {
     System.out.println("Node " + this.agent.getNode() + " start benchmarking");
     sendPermits = new Semaphore(1);
 
-    ByteBuffer buffer = ByteBuffer.allocateDirect(64);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(12);
     buffer.putInt(clientId);
     buffer.putInt(11);
     buffer.putInt(12);
@@ -179,15 +207,25 @@ public class BenchAgent {
     RamcastMessage sampleMessage;
     ByteBuffer sampleBuffer;
     int i = 0;
-    sampleMessage = this.agent.createMessage(buffer, dest);
-    this.sampleBuffer = sampleMessage.toBuffer();
-    if (this.agent.hasClientRole()) {
+    int lastMsgId = -1;
+    //    sampleBuffer = sampleMessage.toBuffer();
+    if (agent.hasClientRole()) {
       while (true) {
         getPermit();
-        this.sampleBuffer.putInt(0, i);
+        int id = Objects.hash(i, this.clientId);
+        //        id = i;
+        sampleMessage = this.agent.createMessage(id, buffer, dest);
+        //        sampleBuffer.putInt(0, i);
         startTime = System.nanoTime();
-        if (RamcastConfig.LOG_ENABLED) logger.debug("Client {} start new request {}", clientId, i);
-        this.agent.multicast(this.sampleBuffer, dest);
+        if (RamcastConfig.LOG_ENABLED)
+          logger.debug("Client {} start new request {} msgId {}", clientId, i, id);
+        //        agent.multicast(sampleBuffer, dest); // for bemchmark only
+        while (!agent.isAllDestReady(dest, lastMsgId)) {
+          Thread.sleep(0);
+        }
+        agent.multicast(sampleMessage, dest);
+        lastMsgId = id;
+        i++;
       }
     }
   }

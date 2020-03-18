@@ -20,6 +20,7 @@ public class RamcastGroup {
   private HashMap<Integer, RamcastNode> nodeMap;
   private boolean isShadow;
   private RamcastNode leader;
+  private int followers;
 
   public RamcastGroup(int groupId) {
     this.groupId = groupId;
@@ -46,11 +47,20 @@ public class RamcastGroup {
     return g;
   }
 
+  // get members of all group
   public static List<RamcastNode> getAllNodes() {
     return groupList.stream()
         .map(RamcastGroup::getMembers)
         .flatMap(List::stream)
         .collect(Collectors.toList());
+  }
+
+  public static int getQuorum(short groupId) {
+    return groupMap.get((int) groupId).getFollowers();
+  }
+
+  public int getLeaderId() {
+    return nodeMap.values().stream().mapToInt(RamcastNode::getOrderId).min().orElse(-1);
   }
 
   public RamcastNode getNode(int nodeId) {
@@ -63,6 +73,7 @@ public class RamcastGroup {
 
   public void removeNode(RamcastNode node) {
     nodeMap.remove(node.getNodeId());
+    this.followers = 0;
   }
 
   public static int getTotalNodeCount() {
@@ -77,8 +88,16 @@ public class RamcastGroup {
   //        return nodeMap.entrySet().stream().map(entry ->
   // entry.getValue().getNodeId()).collect(Collectors.toList());
   //    }
+  // get member of single group
   public List<RamcastNode> getMembers() {
     return new ArrayList<>(nodeMap.values());
+  }
+
+  public int getFollowers() {
+    if (this.followers == 0) {
+      this.followers = (int) nodeMap.values().stream().filter(node -> !node.isLeader()).count();
+    }
+    return this.followers;
   }
 
   public int getId() {

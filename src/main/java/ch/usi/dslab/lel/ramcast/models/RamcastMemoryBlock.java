@@ -28,10 +28,10 @@ public class RamcastMemoryBlock {
   public RamcastMemoryBlock(long address, int lkey, int capacity, ByteBuffer buffer) {
     this.address = address;
     this.lkey = lkey;
+    this.buffer = buffer;
     this.capacity = capacity;
     this.headOffset = 0;
     this.tailOffset = 0;
-    this.buffer = buffer;
     this.freeableSlots = new TreeSet<>();
   }
 
@@ -90,7 +90,45 @@ public class RamcastMemoryBlock {
         + lkey
         + ", capacity="
         + capacity
-        + '}';
+        + ", buffer="
+        + buffer
+        + "}";
+  }
+
+  public String toFullString() {
+    StringBuilder ret =
+        new StringBuilder(
+            "Mem{"
+                + "head="
+                + headOffset
+                + ", tail="
+                + tailOffset
+                + ", pass="
+                + tailPassedHead
+                + ", address="
+                + address
+                + ", lkey="
+                + lkey
+                + ", capacity="
+                + capacity
+                + ", buffer="
+                + buffer
+                + "}\n");
+    for (int i = 0; i < RamcastConfig.getInstance().getQueueLength(); i++) {
+      buffer.clear();
+      RamcastMessage msg =
+          new RamcastMessage(
+              ((ByteBuffer)
+                      (buffer
+                          .position(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_BUFFER_LENGTH)
+                          .limit(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_MESSAGE)))
+                  .slice(),
+              null,
+              this);
+      ret.append("slot=").append(i).append("::").append(msg).append("\n");
+    }
+
+    return ret.toString();
   }
 
   public RamcastEndpoint getEndpoint() {
