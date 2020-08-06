@@ -2,8 +2,8 @@
 import common
 
 NUM_GROUPS = 2
-NUM_PROCESSES = [2]
-NUM_CLIENTS = [4]
+NUM_PROCESSES = [3]
+NUM_CLIENTS = [1]
 
 NUM_DEST = 1
 DURATION = 60

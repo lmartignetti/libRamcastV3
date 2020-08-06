@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class RamcastConfig {
+
+  public static boolean ENABLE_LEADER_ELECTION = false;
   public static final int MSG_HS_C1 = -1; // handshake msg step 1 from client
   public static final int MSG_HS_S1 = -2; // handshake msg step 1 from server
   public static final int MSG_HS_C_GET_WRITE =

@@ -60,7 +60,7 @@ public class RamcastGroup {
   }
 
   public int getLeaderId() {
-    return nodeMap.values().stream().mapToInt(RamcastNode::getOrderId).min().orElse(-1);
+    return nodeMap.values().stream().mapToInt(RamcastNode::getNodeId).min().orElse(-1);
   }
 
   public RamcastNode getNode(int nodeId) {

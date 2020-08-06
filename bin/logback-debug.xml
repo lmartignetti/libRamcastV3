@@ -16,7 +16,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.ibm.disni" level="info" additivity="false">
+    <logger name="com.ibm.disni" level="error" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 
@@ -25,7 +25,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="error" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="debug" additivity="false">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>
     </logger>
