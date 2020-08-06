@@ -57,50 +57,50 @@ public class BenchAgent {
   private int msgCount;
 
   private MessageDeliveredCallback onDeliverAmcast =
-      new MessageDeliveredCallback() {
-        @Override
-        public void call(Object data) {
-          //          System.out.println(
-          //              ">>>>>> "
-          //                  //                  + agent.getNode()
-          //                  + " == "
-          //                  + ((RamcastMessage) data).getId()
-          //                  + " == "
-          //                  + (System.nanoTime() - startTime)
-          //              //                                + "\n"
-          //              //                                + (RamcastMessage) data
-          //              //                                + "\n"
-          //              //                                +
-          // agent.getEndpointGroup().getTimestampBlock()
-          //              );
+          new MessageDeliveredCallback() {
+            @Override
+            public void call(Object data) {
+              //          System.out.println(
+              //              ">>>>>> "
+              //                  //                  + agent.getNode()
+              //                  + " == "
+              //                  + ((RamcastMessage) data).getId()
+              //                  + " == "
+              //                  + (System.nanoTime() - startTime)
+              //              //                                + "\n"
+              //              //                                + (RamcastMessage) data
+              //              //                                + "\n"
+              //              //                                +
+              // agent.getEndpointGroup().getTimestampBlock()
+              //              );
 
-          if (agent.hasClientRole()) {
-            if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
-              releasePermit();
-              System.out.println(
-                  ">>>>>> "
-                      + agent.getNode()
-                      + " == "
-                      + ((RamcastMessage) data).getId()
-                      + " == "
-                      + (System.nanoTime() - startTime)
-                  //                                                  + "\n"
-                  //                                                  + (RamcastMessage) data
-                  //                                                  + "\n"
-                  //                                                  +
-                  // agent.getEndpointGroup().getTimestampBlock()
+              if (agent.hasClientRole()) {
+                if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
+                  releasePermit();
+                  System.out.println(
+                          ">>>>>> "
+                                  + agent.getNode()
+                                  + " == "
+                                  + ((RamcastMessage) data).getId()
+                                  + " == "
+                                  + (System.nanoTime() - startTime)
+                          //                                                  + "\n"
+                          //                                                  + (RamcastMessage) data
+                          //                                                  + "\n"
+                          //                                                  +
+                          // agent.getEndpointGroup().getTimestampBlock()
                   );
-              latMonitor.logLatency(startTime, System.nanoTime());
-              tpMonitor.incrementCount();
-                            try {
-                              Thread.sleep(1000);
-                            } catch (InterruptedException e) {
-                              e.printStackTrace();
-                            }
+                  latMonitor.logLatency(startTime, System.nanoTime());
+                  tpMonitor.incrementCount();
+//                  try {
+//                    Thread.sleep(1000);
+//                  } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                  }
+                }
+              }
             }
-          }
-        }
-      };
+          };
 
   public static void main(String[] args) throws Exception {
     //        Thread.sleep(5000);
@@ -127,19 +127,19 @@ public class BenchAgent {
     Option cIdOption = Option.builder("cid").desc("client id").hasArg().build();
     Option configOption = Option.builder("c").required().desc("config file").hasArg().build();
     Option packageSizeOption =
-        Option.builder("s").required().desc("sample package size").hasArg().build();
+            Option.builder("s").required().desc("sample package size").hasArg().build();
     Option gathererHostOption =
-        Option.builder("gh").required().desc("gatherer host").hasArg().build();
+            Option.builder("gh").required().desc("gatherer host").hasArg().build();
     Option gathererPortOption =
-        Option.builder("gp").required().desc("gatherer port").hasArg().build();
+            Option.builder("gp").required().desc("gatherer port").hasArg().build();
     Option gathererDirectoryOption =
-        Option.builder("gd").required().desc("gatherer directory").hasArg().build();
+            Option.builder("gd").required().desc("gatherer directory").hasArg().build();
     Option warmUpTimeOption =
-        Option.builder("gw").required().desc("gatherer warmup time").hasArg().build();
+            Option.builder("gw").required().desc("gatherer warmup time").hasArg().build();
     Option durationOption =
-        Option.builder("d").required().desc("benchmark duration").hasArg().build();
+            Option.builder("d").required().desc("benchmark duration").hasArg().build();
     Option destinationCountOption =
-        Option.builder("dc").required().desc("destination count").hasArg().build();
+            Option.builder("dc").required().desc("destination count").hasArg().build();
 
     Options options = new Options();
     options.addOption(nIdOption);
@@ -177,7 +177,7 @@ public class BenchAgent {
 
     if (this.agent.hasClientRole()) {
       DataGatherer.configure(
-          experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
+              experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
       this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
       this.latMonitor = new LatencyPassiveMonitor(this.clientId, "client_overall", true);
     }

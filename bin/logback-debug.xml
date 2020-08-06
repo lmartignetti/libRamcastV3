@@ -16,7 +16,7 @@
         </encoder>
     </appender>
 
-    <logger name="com.ibm.disni" level="error" additivity="false">
+    <logger name="com.ibm.disni" level="debug" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 

@@ -41,130 +41,143 @@ public class MessageProcessor {
     this.ordered = new ConcurrentSkipListSet<>(Comparator.comparingInt(RamcastMessage::getFinalTs));
 
     this.pendingMessageProcessor =
-        new Thread(
-            () -> {
-              try {
-                MDC.put("ROLE", agent.getGroupId() + "/" + agent.getNode().getNodeId());
-                while (isRunning) {
-                  if (pendingTimestamps.size() > 0)
-                    for (PendingTimestamp pending : pendingTimestamps) {
-                      int tmpSequence = pending.getSequenceNumber();
-                      int tmpBallot = pending.getBallotNumber();
-                      int tmpClock = pending.getClockValue();
-                      if (tmpSequence <= 0) continue;
-                      if (RamcastConfig.LOG_ENABLED)
-                        logger.trace(
-                            "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
-                            pending.message.getId(),
-                            tmpBallot,
-                            tmpSequence,
-                            pending.groupId,
-                            group.getBallotNumber().get(),
-                            group.getCurrentSequenceNumber().get(),
-                            pendingTimestamps,
-                            group.getTimestampBlock());
+            new Thread(
+                    () -> {
+                      try {
+                        MDC.put("ROLE", agent.getGroupId() + "/" + agent.getNode().getNodeId());
+                        while (isRunning) {
+                          if (pendingTimestamps.size() > 0)
+                            for (PendingTimestamp pending : pendingTimestamps) {
+                              int tmpSequence = pending.getSequenceNumber();
+                              int tmpBallot = pending.getBallotNumber();
+                              int tmpClock = pending.getClockValue();
+                              if (tmpSequence <= 0) continue;
+                              if (RamcastConfig.LOG_ENABLED)
+                                logger.debug(
+                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
+                                        pending.message.getId(),
+                                        tmpBallot,
+                                        tmpSequence,
+                                        pending.groupId,
+                                        group.getBallotNumber().get(),
+                                        group.getCurrentSequenceNumber().get(),
+                                        pendingTimestamps,
+                                        group.getTimestampBlock());
 
-                      if (tmpBallot != group.getBallotNumber().get()) {
-                        if (RamcastConfig.LOG_ENABLED)
-                          logger.trace(
-                              "[{}] timestamp [{}/{}] has babllot doesn't match to local {}",
-                              pending.message.getId(),
-                              tmpBallot,
-                              tmpSequence,
-                              group.getBallotNumber().get());
-                        //                      if (!this.agent.isLeader())
-                        continue;
-                      }
+                              // there is a case where that ts memory slot still has old value (which should be cleaned up). So need to chec
+                              // with the expected sequence number
+                              if (tmpSequence < group.getCurrentSequenceNumber().get()) {
+                                if (RamcastConfig.LOG_ENABLED)
+                                  logger.debug(
+                                          "[{}] timestamp [{}/{}] has sequence doesn't match to local {}",
+                                          pending.message.getId(),
+                                          tmpBallot,
+                                          tmpSequence,
+                                          group.getCurrentSequenceNumber().get());
+                                continue;
+                              }
 
-                      // if this is leader, this should propagate the msg to local group if possible
-                      if (this.agent.isLeader()) {
-                        if (pending.groupId != this.agent.getGroupId()
-                            && pending.shouldPropagate()) {
-                          if (RamcastConfig.LOG_ENABLED)
-                            logger.debug(
-                                "[{}] remove pending timestamp [{}/{}] of group {} index {}, current seqnumber {} -- LEADER process propagate ts with value [{}/{}]",
-                                pending.message.getId(),
-                                tmpBallot,
-                                tmpSequence,
-                                pending.groupId,
-                                pending.groupIndex,
-                                group.getCurrentSequenceNumber().get(),
-                                tmpBallot,
-                                group.getSequenceNumber().get() + 1);
-                          group.leaderPropageTs(
-                              pending.message,
-                              tmpBallot,
-                              tmpClock,
-                              pending.groupId,
-                              pending.groupIndex);
-                          pending.shouldPropagate = false;
-                          continue;
+                              if (tmpBallot != group.getBallotNumber().get()) {
+                                if (RamcastConfig.LOG_ENABLED)
+                                  logger.debug(
+                                          "[{}] timestamp [{}/{}] has babllot doesn't match to local {}",
+                                          pending.message.getId(),
+                                          tmpBallot,
+                                          tmpSequence,
+                                          group.getBallotNumber().get());
+                                //                      if (!this.agent.isLeader())
+                                continue;
+                              }
+
+                              // if this is leader, this should propagate the msg to local group if possible
+                              if (this.agent.isLeader()) {
+                                if (pending.groupId != this.agent.getGroupId()
+                                        && pending.shouldPropagate()) {
+                                  if (RamcastConfig.LOG_ENABLED)
+                                    logger.debug(
+                                            "[{}] remove pending timestamp [{}/{}] of group {} index {}, current seqnumber {} -- LEADER process propagate ts with value [{}/{}]",
+                                            pending.message.getId(),
+                                            tmpBallot,
+                                            tmpSequence,
+                                            pending.groupId,
+                                            pending.groupIndex,
+                                            group.getCurrentSequenceNumber().get(),
+                                            tmpBallot,
+                                            group.getSequenceNumber().get() + 1);
+                                  group.leaderPropageTs(
+                                          pending.message,
+                                          tmpBallot,
+                                          tmpClock,
+                                          pending.groupId,
+                                          pending.groupIndex);
+                                  pending.shouldPropagate = false;
+                                  continue;
+                                }
+                              }
+
+                              if (tmpSequence == group.getCurrentSequenceNumber().get() + 1) {
+                                group.getCurrentSequenceNumber().incrementAndGet();
+                                group.getSequenceNumber().set(tmpSequence);
+                                if (!this.agent.isLeader()) group.getLocalClock().set(tmpClock);
+                                if (RamcastConfig.LOG_ENABLED)
+                                  logger.debug(
+                                          "[{}] remove pending timestamp [{}/{}] of group {} index {}, current seqnumber {}",
+                                          pending.message.getId(),
+                                          tmpBallot,
+                                          tmpSequence,
+                                          pending.groupId,
+                                          pending.groupIndex,
+                                          group.getCurrentSequenceNumber().get());
+                                if (pending.shouldAck() && !pending.isSendAck() && !this.agent.isLeader()) {
+                                  logger.debug(
+                                          "[{}] Start sending ack for timestamp [{}/{}] of group {} index {}, current seqnumber {}",
+                                          pending.message.getId(),
+                                          tmpBallot,
+                                          tmpSequence,
+                                          pending.groupId,
+                                          pending.groupIndex,
+                                          group.getCurrentSequenceNumber().get());
+                                  group.sendAck(
+                                          pending.message,
+                                          tmpBallot,
+                                          tmpSequence,
+                                          pending.groupId,
+                                          pending.groupIndex);
+                                  pending.sendAck = true;
+                                }
+                                pendingTimestamps.remove(pending);
+                              }
+                            }
+
+                          int minTs = Integer.MAX_VALUE;
+                          if (processing.size() > 0)
+                            for (RamcastMessage message : processing) {
+                              if (isFulfilled(message)) {
+                                message.setFinalTs(group.getTimestampBlock().getMaxTimestamp(message));
+                                this.processing.remove(message);
+                                this.ordered.add(message);
+                              } else {
+                              }
+                              if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
+                            }
+
+                          if (ordered.size() == 0) continue;
+                          int minOrderedTs = Integer.MAX_VALUE;
+                          if (ordered.first() != null) minOrderedTs = ordered.first().getFinalTs();
+
+                          for (RamcastMessage message : ordered) {
+                            if (message.getFinalTs() <= minTs && message.getFinalTs() <= minOrderedTs) {
+                              ordered.remove(message);
+                              this.agent.deliver(message);
+                            }
+                          }
+
+                          Thread.yield();
                         }
+                      } catch (IOException e) {
+                        e.printStackTrace();
                       }
-
-                      if (tmpSequence == group.getCurrentSequenceNumber().get() + 1) {
-                        group.getCurrentSequenceNumber().incrementAndGet();
-                        group.getSequenceNumber().set(tmpSequence);
-                        if (!this.agent.isLeader()) group.getLocalClock().set(tmpClock);
-                        if (RamcastConfig.LOG_ENABLED)
-                          logger.debug(
-                              "[{}] remove pending timestamp [{}/{}] of group {} index {}, current seqnumber {}",
-                              pending.message.getId(),
-                              tmpBallot,
-                              tmpSequence,
-                              pending.groupId,
-                              pending.groupIndex,
-                              group.getCurrentSequenceNumber().get());
-                        if (pending.shouldAck() && !pending.isSendAck() && !this.agent.isLeader()) {
-                          logger.debug(
-                              "[{}] Start sending ack for timestamp [{}/{}] of group {} index {}, current seqnumber {}",
-                              pending.message.getId(),
-                              tmpBallot,
-                              tmpSequence,
-                              pending.groupId,
-                              pending.groupIndex,
-                              group.getCurrentSequenceNumber().get());
-                          group.sendAck(
-                              pending.message,
-                              tmpBallot,
-                              tmpSequence,
-                              pending.groupId,
-                              pending.groupIndex);
-                          pending.sendAck = true;
-                        }
-                        pendingTimestamps.remove(pending);
-                      }
-                    }
-
-                  int minTs = Integer.MAX_VALUE;
-                  if (processing.size() > 0)
-                    for (RamcastMessage message : processing) {
-                      if (isFulfilled(message)) {
-                        message.setFinalTs(group.getTimestampBlock().getMaxTimestamp(message));
-                        this.processing.remove(message);
-                        this.ordered.add(message);
-                      } else {
-                      }
-                      if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
-                    }
-
-                  if (ordered.size() == 0) continue;
-                  int minOrderedTs = Integer.MAX_VALUE;
-                  if (ordered.first() != null) minOrderedTs = ordered.first().getFinalTs();
-
-                  for (RamcastMessage message : ordered) {
-                    if (message.getFinalTs() <= minTs && message.getFinalTs() <= minOrderedTs) {
-                      ordered.remove(message);
-                      this.agent.deliver(message);
-                    }
-                  }
-
-                  Thread.yield();
-                }
-              } catch (IOException e) {
-                e.printStackTrace();
-              }
-            });
+                    });
     this.pendingMessageProcessor.setName("MessageProcessor");
     this.pendingMessageProcessor.start();
   }
@@ -205,10 +218,10 @@ public class MessageProcessor {
       if (RamcastConfig.LOG_ENABLED) logger.debug("[{}] Leader processing...", msgId);
       try {
         group.writeTimestamp(
-            message,
-            group.getBallotNumber().get(),
-            group.getSequenceNumber().incrementAndGet(),
-            group.getLocalClock().incrementAndGet());
+                message,
+                group.getBallotNumber().get(),
+                group.getSequenceNumber().incrementAndGet(),
+                group.getLocalClock().incrementAndGet());
       } catch (IOException e) {
         e.printStackTrace();
       }
@@ -265,14 +278,14 @@ public class MessageProcessor {
 
     public String toString() {
       return "id="
-          + message.getId()
-          + ":["
-          + getBallotNumber()
-          + "/"
-          + getSequenceNumber()
-          + "/"
-          + getClockValue()
-          + "]";
+              + message.getId()
+              + ":["
+              + getBallotNumber()
+              + "/"
+              + getSequenceNumber()
+              + "/"
+              + getClockValue()
+              + "]";
     }
 
     public boolean shouldAck() {
