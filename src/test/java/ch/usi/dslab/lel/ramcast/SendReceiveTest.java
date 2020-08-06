@@ -55,6 +55,7 @@ public class SendReceiveTest {
                   try {
                     RamcastAgent agent = new RamcastAgent(finalG, finalP);
                     agents.add(agent);
+                    agent.bind();
                     agent.establishConnections();
                   } catch (Exception e) {
                     e.printStackTrace();

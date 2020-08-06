@@ -27,6 +27,11 @@ public class RamcastNode {
     this.roleId = roleId;
   }
 
+  public static void removeLeader(int groupId) {
+    RamcastGroup g = RamcastGroup.groupMap.get(groupId);
+    for (RamcastNode node : g.getMembers()) node.setLeader(false);
+  }
+
   public static RamcastNode getNode(int groupId, int nodeId) {
     RamcastGroup g = RamcastGroup.groupMap.get(groupId);
     if (g == null) {

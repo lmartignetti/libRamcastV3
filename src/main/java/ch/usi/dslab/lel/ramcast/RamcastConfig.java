@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.Iterator;
 
 public class RamcastConfig {
+
+  public static boolean ENABLE_LEADER_ELECTION = false;
   public static final int MSG_HS_C1 = -1; // handshake msg step 1 from client
   public static final int MSG_HS_S1 = -2; // handshake msg step 1 from server
   public static final int MSG_HS_C_GET_WRITE =
@@ -23,10 +25,12 @@ public class RamcastConfig {
   public static final int SIZE_MESSAGE = 256;
   // a 64 bits value of the checksum
   public static final int SIZE_CHECKSUM = 8;
+  // length of the length field of buffer that is being transmit
+  public static final int SIZE_BUFFER_LENGTH = 4;
   // payload of a multicast message should not exceed this value
-  public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_CHECKSUM;
-  //  total size of timestamp, includes timestamp, ballot, value
-  public static final int SIZE_TIMESTAMP = 12;
+  public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_BUFFER_LENGTH;
+  //  total size of timestamp, includes timestamp, ballot, value, status (delivered, pending)
+  public static final int SIZE_TIMESTAMP = 14;
   // total size of remote-head value, include value, msgId
   public static final int SIZE_REMOTE_HEAD = 8;
   // total size of ack message, including ACK VALUE, BALLOT
@@ -34,11 +38,13 @@ public class RamcastConfig {
   public static final int SIZE_ACK_VALUE = 4;
   // maximum size of signal package, for acks, update head, or ts
   public static final int SIZE_SIGNAL = 16;
+  // size for FUO value, at the end of the timestamp buffer
+  public static final int SIZE_FUO = 0;
 
   // Message content
   // ID
   public static final int SIZE_MSG_ID = 4;
-  public static final int SIZE_MSG_LENGTH = 4;
+  public static final int SIZE_MSG_LENGTH = 4; // length of payload
   public static final int SIZE_MSG_GROUP_COUNT = 2;
   public static final int SIZE_MSG_GROUP = 2;
   public static final int SIZE_MSG_OFFSET = 2;
@@ -46,12 +52,14 @@ public class RamcastConfig {
 
   // positions in a message
   // total size of ack message, including ACK, BALLOT
-  public static final int POS_CHECKSUM = SIZE_MESSAGE - SIZE_CHECKSUM;
-
+//  public static final int POS_CHECKSUM = 0;
+  public static final int POS_LENGTH_BUFFER = 0;
   // NODE ROLE
   public static final int ROLE_BOTH = 3;
   public static final int ROLE_CLIENT = 1;
   public static final int ROLE_SERVER = 2;
+
+
 
   public static boolean LOG_ENABLED = true; // flag for logging
   private static RamcastConfig[] instances;
@@ -100,10 +108,6 @@ public class RamcastConfig {
 
   public int getFollowerCount() {
     return nodePerGroup - 1;
-  }
-
-  public int getTotalNodeCount() {
-    return RamcastGroup.getTotalNodeCount();
   }
 
   public int getQueueLength() {

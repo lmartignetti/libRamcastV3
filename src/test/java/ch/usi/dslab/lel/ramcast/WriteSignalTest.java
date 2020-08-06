@@ -50,6 +50,7 @@ public class WriteSignalTest {
                   try {
                     RamcastAgent agent = new RamcastAgent(finalG, finalP);
                     agents.add(agent);
+                    agent.bind();
                     agent.establishConnections();
                   } catch (Exception e) {
                     e.printStackTrace();
@@ -103,7 +104,7 @@ public class WriteSignalTest {
       agents
           .get(0)
           .getEndpointGroup()
-          .writeRemoteHeadOnClient(agent0.getEndpointMap().get(agent1.getNode()), 10);
+          .writeRemoteHeadOnClient(agent0.getEndpointMap().get(agent1.getNode()), 10, 0);
     }
   }
 
@@ -118,7 +119,12 @@ public class WriteSignalTest {
       agent0
           .getEndpointGroup()
           .writeTimestamp(
-              agent0.getEndpointMap().get(agent1.getNode()), slot, ballot, ballot + 1, ballot + 2);
+              agent0.getEndpointMap().get(agent1.getNode()),
+              slot,
+              0,
+              ballot,
+              ballot + 1,
+              ballot + 2);
       Thread.sleep(10);
       assertTrue(
           agent1
@@ -154,12 +160,12 @@ public class WriteSignalTest {
     agent0
         .getEndpointGroup()
         .writeTimestamp(
-            agent0.getEndpointMap().get(agent1.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent0.getEndpointMap().get(agent1.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
     Thread.sleep(10);
     agent0
         .getEndpointGroup()
         .writeTimestamp(
-            agent0.getEndpointMap().get(agent2.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent0.getEndpointMap().get(agent2.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
     Thread.sleep(10);
     assertTrue(
         agent1
@@ -195,9 +201,9 @@ public class WriteSignalTest {
                 == ballot + 2);
 
     // Now we change the leader
-    agent0.setLeader(agent1.getNode());
-    agent1.setLeader(agent1.getNode());
-    agent2.setLeader(agent1.getNode());
+    agent0.setLeader(agent1.getNode().getGroupId(), agent1.getNode().getNodeId());
+    agent1.setLeader(agent1.getNode().getGroupId(), agent1.getNode().getNodeId());
+    agent2.setLeader(agent1.getNode().getGroupId(), agent1.getNode().getNodeId());
 
     // then leader request permission
     agent1.getEndpointGroup().requestWritePermission();
@@ -217,12 +223,12 @@ public class WriteSignalTest {
     agent0
         .getEndpointGroup()
         .writeTimestamp(
-            agent0.getEndpointMap().get(agent1.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent0.getEndpointMap().get(agent1.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
     // old leader should not be able to write
     agent0
         .getEndpointGroup()
         .writeTimestamp(
-            agent0.getEndpointMap().get(agent2.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent0.getEndpointMap().get(agent2.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
 
     lock.acquire(2);
 
@@ -242,12 +248,12 @@ public class WriteSignalTest {
     agent1
         .getEndpointGroup()
         .writeTimestamp(
-            agent1.getEndpointMap().get(agent0.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent1.getEndpointMap().get(agent0.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
     // old leader should not be able to write
     agent1
         .getEndpointGroup()
         .writeTimestamp(
-            agent1.getEndpointMap().get(agent2.getNode()), slot, ballot, ballot + 1, ballot + 2);
+            agent1.getEndpointMap().get(agent2.getNode()), slot, 0, ballot, ballot + 1, ballot + 2);
     Thread.sleep(1000);
   }
 }

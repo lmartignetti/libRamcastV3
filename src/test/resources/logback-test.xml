@@ -16,7 +16,7 @@
 <!--            </layout>-->
 <!--        </encoder>-->
         <encoder>
-            <pattern>%-5r | %.-4level | %-3(%X{ROLE}) | %-16logger{0} | %msg%n</pattern>
+            <pattern>%-5r | %.-4level | %-3(%X{ROLE}) | %-24logger{0} | %msg%n</pattern>
         </encoder>
     </appender>
 

@@ -16,7 +16,7 @@ def get_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
-DEAD_NODES = [2]
+DEAD_NODES = [2,7]
 
 ENV_CLUSTER = False
 ENV_EMULAB = False

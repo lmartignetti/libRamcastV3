@@ -37,6 +37,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 
 public class BenchAgent {
@@ -56,23 +57,50 @@ public class BenchAgent {
   private int msgCount;
 
   private MessageDeliveredCallback onDeliverAmcast =
-      new MessageDeliveredCallback() {
-        @Override
-        public void call(Object data) {
-          if (agent.hasClientRole()) {
-            if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
-              releasePermit();
-              //              System.out.println(
-              //                  ">>>>>> "
-              //                      + agent.getNode()
-              //                      + " == "
-              //                      + (System.nanoTime() - startTime));
-              latMonitor.logLatency(startTime, System.nanoTime());
-              tpMonitor.incrementCount();
+          new MessageDeliveredCallback() {
+            @Override
+            public void call(Object data) {
+              //          System.out.println(
+              //              ">>>>>> "
+              //                  //                  + agent.getNode()
+              //                  + " == "
+              //                  + ((RamcastMessage) data).getId()
+              //                  + " == "
+              //                  + (System.nanoTime() - startTime)
+              //              //                                + "\n"
+              //              //                                + (RamcastMessage) data
+              //              //                                + "\n"
+              //              //                                +
+              // agent.getEndpointGroup().getTimestampBlock()
+              //              );
+
+              if (agent.hasClientRole()) {
+                if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
+                  releasePermit();
+                  System.out.println(
+                          ">>>>>> "
+                                  + agent.getNode()
+                                  + " == "
+                                  + ((RamcastMessage) data).getId()
+                                  + " == "
+                                  + (System.nanoTime() - startTime)
+                          //                                                  + "\n"
+                          //                                                  + (RamcastMessage) data
+                          //                                                  + "\n"
+                          //                                                  +
+                          // agent.getEndpointGroup().getTimestampBlock()
+                  );
+                  latMonitor.logLatency(startTime, System.nanoTime());
+                  tpMonitor.incrementCount();
+//                  try {
+//                    Thread.sleep(1000);
+//                  } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                  }
+                }
+              }
             }
-          }
-        }
-      };
+          };
 
   public static void main(String[] args) throws Exception {
     //        Thread.sleep(5000);
@@ -99,19 +127,19 @@ public class BenchAgent {
     Option cIdOption = Option.builder("cid").desc("client id").hasArg().build();
     Option configOption = Option.builder("c").required().desc("config file").hasArg().build();
     Option packageSizeOption =
-        Option.builder("s").required().desc("sample package size").hasArg().build();
+            Option.builder("s").required().desc("sample package size").hasArg().build();
     Option gathererHostOption =
-        Option.builder("gh").required().desc("gatherer host").hasArg().build();
+            Option.builder("gh").required().desc("gatherer host").hasArg().build();
     Option gathererPortOption =
-        Option.builder("gp").required().desc("gatherer port").hasArg().build();
+            Option.builder("gp").required().desc("gatherer port").hasArg().build();
     Option gathererDirectoryOption =
-        Option.builder("gd").required().desc("gatherer directory").hasArg().build();
+            Option.builder("gd").required().desc("gatherer directory").hasArg().build();
     Option warmUpTimeOption =
-        Option.builder("gw").required().desc("gatherer warmup time").hasArg().build();
+            Option.builder("gw").required().desc("gatherer warmup time").hasArg().build();
     Option durationOption =
-        Option.builder("d").required().desc("benchmark duration").hasArg().build();
+            Option.builder("d").required().desc("benchmark duration").hasArg().build();
     Option destinationCountOption =
-        Option.builder("dc").required().desc("destination count").hasArg().build();
+            Option.builder("dc").required().desc("destination count").hasArg().build();
 
     Options options = new Options();
     options.addOption(nIdOption);
@@ -149,16 +177,16 @@ public class BenchAgent {
 
     if (this.agent.hasClientRole()) {
       DataGatherer.configure(
-          experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
+              experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
       this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
       this.latMonitor = new LatencyPassiveMonitor(this.clientId, "client_overall", true);
     }
 
     this.agent.bind();
-    Thread.sleep(3000);
+    Thread.sleep(1000);
     this.agent.establishConnections();
-
     logger.info("NODE READY");
+    Thread.sleep(3000);
 
     this.startBenchmark();
   }
@@ -167,7 +195,7 @@ public class BenchAgent {
     System.out.println("Node " + this.agent.getNode() + " start benchmarking");
     sendPermits = new Semaphore(1);
 
-    ByteBuffer buffer = ByteBuffer.allocateDirect(64);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(12);
     buffer.putInt(clientId);
     buffer.putInt(11);
     buffer.putInt(12);
@@ -179,15 +207,25 @@ public class BenchAgent {
     RamcastMessage sampleMessage;
     ByteBuffer sampleBuffer;
     int i = 0;
-    sampleMessage = this.agent.createMessage(buffer, dest);
-    this.sampleBuffer = sampleMessage.toBuffer();
-    if (this.agent.hasClientRole()) {
+    int lastMsgId = -1;
+    //    sampleBuffer = sampleMessage.toBuffer();
+    if (agent.hasClientRole()) {
       while (true) {
         getPermit();
-        this.sampleBuffer.putInt(0, i);
+        int id = Objects.hash(i, this.clientId);
+        //        id = i;
+        sampleMessage = this.agent.createMessage(id, buffer, dest);
+        //        sampleBuffer.putInt(0, i);
         startTime = System.nanoTime();
-        if (RamcastConfig.LOG_ENABLED) logger.debug("Client {} start new request {}", clientId, i);
-        this.agent.multicast(this.sampleBuffer, dest);
+        if (RamcastConfig.LOG_ENABLED)
+          logger.debug("Client {} start new request {} msgId {}", clientId, i, id);
+        //        agent.multicast(sampleBuffer, dest); // for bemchmark only
+        while (!agent.isAllDestReady(dest, lastMsgId)) {
+          Thread.sleep(0);
+        }
+        agent.multicast(sampleMessage, dest);
+        lastMsgId = id;
+        i++;
       }
     }
   }

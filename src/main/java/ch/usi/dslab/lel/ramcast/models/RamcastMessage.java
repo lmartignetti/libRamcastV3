@@ -2,13 +2,46 @@ package ch.usi.dslab.lel.ramcast.models;
 
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
 import ch.usi.dslab.lel.ramcast.utils.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
+import java.util.Map;
 
 public class RamcastMessage {
-  private static final int POS_ID = 0;
-  private static final int POS_MSG_LENGTH = RamcastConfig.SIZE_MSG_ID;
-  private static final int POS_MSG = RamcastConfig.SIZE_MSG_ID + RamcastConfig.SIZE_MSG_LENGTH;
+
+  /*
+
+  0        4        8              20            22            26                    30         38           46          54          62          70
+  ╠════════╬════════╬══════════════╬═════════════╬═════════════╬═════════════════════╬═══════════╬═══════════════════════════════════════════════╣
+  ║   4    ║   4    ║     12       ║    2        ║    2 * 2    ║     2 * 2           ║    8      ║                  8 * r * n                    ║
+  ╠════════╬════════╬══════════════╬═════════════╬═════════════╬═════════════════════╬═══════════╬═══════════════════════════════════════════════╣
+  ║  id    ║ length ║  message(m)  ║ g count     ║ g[0] │ g[1] ║ slot[0]  │ slot[1]  ║    crc    ║ ack[0][0] │ ack[0][1] │ ack[1][0] │ ack[1][1] ║
+  ╚════════╩════════╩══════════════╩═════════════╩═════════════╩═════════════════════╩═══════════╩═══════════════════════════════════════════════╝
+
+  0        4        8              20            22        24        26           34         42            50
+  ╠════════╬════════╬══════════════╬═════════════╬═════════╬══════==══╬═══════════╬════════════════════════╣
+  ║   4    ║   4    ║     12       ║    2        ║    2    ║    2     ║    8      ║       8 * r * n        ║
+  ╠════════╬════════╬══════════════╬═════════════╬═════════╬══════════╬═══════════╬════════════════════════╣
+  ║  id    ║ length ║  message(m)  ║ g count     ║   g[0]  ║ slot[0]  ║    crc    ║ ack[0][0] │ ack[0][1]  ║
+  ╚════════╩════════╩══════════════╩═════════════╩═════════╩══════════╩═══════════╩════════════════════════╝
+
+
+  */
+
+  // id: int: 4
+  // length: int: 4
+  // groupCount: short: 2
+  // message: this.messageLength
+  // groups: short[]: 2* groupCount
+  // acks: short[]: 2* groupCount
+
+  private static final Logger logger = LoggerFactory.getLogger(RamcastMessage.class);
+
+  public static final int POS_ID = 0;
+  public static final int POS_MSG_LENGTH = RamcastConfig.SIZE_MSG_ID;
+  public static final int POS_MSG = RamcastConfig.SIZE_MSG_ID + RamcastConfig.SIZE_MSG_LENGTH;
 
   private static RamcastConfig config = RamcastConfig.getInstance();
   // the memory block where this message is located
@@ -34,8 +67,14 @@ public class RamcastMessage {
   private long address;
 
   // storing acks of other nodes
-  private short[][] groupsAcks;
-  private short[][] groupsAckBallots;
+  private int[][] groupsAcksBallots;
+  private int[][] groupsAckSequences;
+
+  private Map<Short, Short> groupsMap;
+
+  private RamcastNode source; // from which node this message has been sent
+
+  private int finalTs;
 
   public RamcastMessage(ByteBuffer message, int[] groups) {
     this.message = message;
@@ -51,19 +90,30 @@ public class RamcastMessage {
     this.groupsCount = (short) groups.length;
     this.buffer = null;
     this.address = -1;
-    this.groupsAcks = new short[groups.length][config.getFollowerCount()];
-    this.groupsAckBallots = new short[groups.length][config.getFollowerCount()];
+    this.groupsAcksBallots = new int[groups.length][config.getNodePerGroup()];
+    this.groupsAckSequences = new int[groups.length][config.getNodePerGroup()];
   }
 
-  public RamcastMessage(ByteBuffer buffer, RamcastMemoryBlock memoryBlock) {
+  public RamcastMessage(ByteBuffer buffer, RamcastNode source, RamcastMemoryBlock memoryBlock) {
     this.buffer = buffer;
     this.memoryBlock = memoryBlock;
+    this.source = source;
     this.slot = (short) memoryBlock.getTailOffset();
     this.address = memoryBlock.getTail();
   }
 
+  public int calculateBasedLength() {
+    return RamcastConfig.SIZE_MSG_ID
+        + RamcastConfig.SIZE_MSG_LENGTH
+        + this.messageLength
+        + RamcastConfig.SIZE_MSG_GROUP_COUNT
+        + this.getGroupCount() * RamcastConfig.SIZE_MSG_GROUP
+        + this.getGroupCount() * RamcastConfig.SIZE_MSG_SLOT
+        + RamcastConfig.SIZE_CHECKSUM;
+  }
+
   public ByteBuffer toBuffer() {
-    ByteBuffer ret = ByteBuffer.allocateDirect(RamcastConfig.SIZE_PAYLOAD);
+    ByteBuffer ret = ByteBuffer.allocateDirect(this.calculateBasedLength());
     this.message.clear();
     ret.putInt(this.id);
     ret.putInt(this.messageLength);
@@ -73,8 +123,14 @@ public class RamcastMessage {
       ret.putShort(this.groups[i]);
     }
     for (int i = 0; i < this.groupsCount; i++) {
-      ret.putLong(this.slots[i]);
+      ret.putShort(this.slots[i]);
     }
+    int pos = ret.position();
+    long crc = StringUtils.calculateCrc32((ByteBuffer) ret.position(0).limit(pos));
+    ret.clear();
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug("Current pos: {}, cap {}, crc {}", pos, ret.capacity(), crc);
+    ret.putLong(pos, crc);
     return ret;
   }
 
@@ -101,8 +157,12 @@ public class RamcastMessage {
     return getPosGroups() + RamcastConfig.SIZE_MSG_GROUP * getGroupCount();
   }
 
+  private int getPosCrc() {
+    return getPosSlots() + RamcastConfig.SIZE_MSG_SLOT * getGroupCount();
+  }
+
   private int getPosAcks() {
-    return getPosSlots() * RamcastConfig.SIZE_MSG_SLOT * getGroupCount();
+    return getPosCrc() + RamcastConfig.SIZE_CHECKSUM;
   }
 
   public short getGroupCount() {
@@ -123,102 +183,150 @@ public class RamcastMessage {
     return this.message;
   }
 
+  // group number
   public short getGroup(int index) {
     // this is when the msg has just been created;
     if (this.buffer == null) return this.groups[index];
 
-    if (this.groups == null) {
-      this.groups = new short[this.getGroupCount()];
-    }
-    if (this.groups[index] <= 0) {
-      this.groups[index] = this.buffer.getShort(getPosGroups() + 2 * index);
-    }
-    return this.groups[index];
+    //    if (this.groups == null) {
+    //      this.groups = new short[this.getGroupCount()];
+    //    }
+    //    if (this.groups[index] <= 0) {
+    //      this.groups[index] = this.buffer.getShort(getPosGroups() + 2 * index);
+    //    }
+    //    return this.groups[index];
+    return this.buffer.getShort(getPosGroups() + 2 * index);
   }
 
-  private short getGroupSlot(int index) {
+  // slot number in the shared memory of group index
+  public short getGroupSlot(int index) {
     // this is when the msg has just been created;
     if (this.buffer == null) return this.slots[index];
+    //
+    //    if (this.slots == null) {
+    //      this.slots = new short[this.getGroupCount()];
+    //    }
+    //    if (this.slots[index] <= 0) {
+    //      this.slots[index] =
+    //          this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
+    //    }
+    //    return this.slots[index];
 
-    if (this.slots == null) {
-      this.slots = new short[this.getGroupCount()];
-    }
-    if (this.slots[index] <= 0) {
-      this.slots[index] =
-          this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
-    }
-    return this.slots[index];
+    return this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
   }
 
-  public short getAck(int groupIndex, int nodeIndex) {
-    // this is when the msg has just been created;
-    if (this.buffer == null) return this.groupsAcks[groupIndex][nodeIndex];
-
-    if (this.groupsAcks == null) {
-      this.groupsAcks = new short[this.getGroupCount()][config.getFollowerCount()];
+  // index in the list of groups in the msg of a groupId
+  public short getGroupIndex(int groupId) {
+    if (groupsMap == null) groupsMap = new HashMap<>();
+    if (groupsMap.get((short) groupId) != null) {
+      return groupsMap.get((short) groupId);
     }
-    if (this.groupsAcks[groupIndex][nodeIndex] <= 0) {
-      int index = groupIndex * config.getFollowerCount() + nodeIndex;
+    for (int i = 0; i < this.getGroupCount(); i++) {
+      groupsMap.putIfAbsent(this.getGroup(i), (short) i);
+      if (this.getGroup(i) == groupId) return (short) i;
+    }
+    return -1;
+  }
+
+  public int getAckBallot(int groupIndex, int nodeIndex) {
+    // this is when the msg has just been created;
+    if (this.buffer == null) return this.groupsAcksBallots[groupIndex][nodeIndex];
+
+    if (this.groupsAcksBallots == null) {
+      this.groupsAcksBallots = new int[this.getGroupCount()][config.getNodePerGroup()];
+    }
+    if (this.groupsAcksBallots[groupIndex][nodeIndex] <= 0) {
+      int index = groupIndex * config.getNodePerGroup() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
+//      logger.debug(
+//          "Getting ack ballots of group index {} node index {} at calculated index {} pos {}",
+//          groupIndex,
+//          nodeIndex,
+//          index,
+//          pos);
       try {
-        this.groupsAcks[groupIndex][nodeIndex] = this.buffer.getShort(pos);
+        this.groupsAcksBallots[groupIndex][nodeIndex] = this.buffer.getInt(pos);
       } catch (Exception e) {
         // there is a case buffer has not been completed.
         return -1;
       }
     }
-    return this.groupsAcks[groupIndex][nodeIndex];
+    return this.groupsAcksBallots[groupIndex][nodeIndex];
   }
 
-  public short getAckBallot(int groupIndex, int nodeIndex) {
+  public int getAckSequence(int groupIndex, int nodeIndex) {
     // this is when the msg has just been created;
-    if (this.buffer == null) return this.groupsAckBallots[groupIndex][nodeIndex];
+    if (this.buffer == null) return this.groupsAckSequences[groupIndex][nodeIndex];
 
-    if (this.groupsAckBallots == null) {
-      this.groupsAckBallots = new short[this.getGroupCount()][config.getFollowerCount()];
+    if (this.groupsAckSequences == null) {
+      this.groupsAckSequences = new int[this.getGroupCount()][config.getNodePerGroup()];
     }
-    if (this.groupsAckBallots[groupIndex][nodeIndex] <= 0) {
-      int index = groupIndex * config.getFollowerCount() + nodeIndex;
+    if (this.groupsAckSequences[groupIndex][nodeIndex] <= 0) {
+      int index = groupIndex * config.getNodePerGroup() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
+//      logger.debug(
+//          "Getting ack sequence of group index {} node index {} at calculated index {} pos {}",
+//          groupIndex,
+//          nodeIndex,
+//          index,
+//          pos + RamcastConfig.SIZE_ACK_VALUE);
       try {
-        this.groupsAckBallots[groupIndex][nodeIndex] =
-            this.buffer.getShort(pos + RamcastConfig.SIZE_ACK_VALUE);
+        this.groupsAckSequences[groupIndex][nodeIndex] =
+            this.buffer.getInt(pos + RamcastConfig.SIZE_ACK_VALUE);
       } catch (Exception e) {
         // there is a case buffer has not been completed.
         return -1;
       }
     }
-    return this.groupsAckBallots[groupIndex][nodeIndex];
+    return this.groupsAckSequences[groupIndex][nodeIndex];
   }
 
   @Override
   public String toString() {
     StringBuilder ret = new StringBuilder();
+    if (this.getId() <= 0) return StringUtils.formatMessage("EMPTY");
     ret.append(this.getId())
+        .append("║a=")
+        .append(this.getAddress())
         .append("║l=")
         .append(this.getMessageLength())
         .append("║")
         .append(this.getMessage().getInt(0))
-        .append("..msg║gs=")
+        .append("..msg║gc=")
         .append(this.getGroupCount())
         .append("║");
     StringBuilder dests = new StringBuilder("g=");
-    StringBuilder offset = new StringBuilder("o=");
-    StringBuilder acks = new StringBuilder("ak=");
+    StringBuilder offset = new StringBuilder("#=");
+    StringBuilder acks = new StringBuilder("k=");
     for (int i = 0; i < this.getGroupCount(); i++) dests.append(this.getGroup(i)).append("│");
     for (int i = 0; i < this.getGroupCount(); i++) offset.append(this.getGroupSlot(i)).append("│");
 
     for (int i = 0; i < this.getGroupCount(); i++) {
-      for (int j = 0; j < config.getFollowerCount(); j++)
-        acks.append(this.getAck(i, j)).append("/").append(this.getAckBallot(i, j)).append("|");
+      for (int j = 0; j < config.getNodePerGroup(); j++)
+        acks.append(this.getAckBallot(i, j))
+            .append("/")
+            .append(this.getAckSequence(i, j))
+            .append("|");
       acks = new StringBuilder(acks.substring(0, acks.length() - 1));
       acks.append("│");
     }
     dests = new StringBuilder(dests.substring(0, dests.length() - 1));
     offset = new StringBuilder(offset.substring(0, offset.length() - 1));
     acks = new StringBuilder(acks.substring(0, acks.length() - 1));
-    ret.append(dests).append("║").append(offset).append("║").append(acks);
+    ret.append(dests)
+        .append("║")
+        .append(offset)
+        .append("║")
+        // dont' need to show crc, but it's there
+        //        .append(this.getCrc())
+        //        .append("║")
+        .append(acks);
     return StringUtils.formatMessage(ret.toString());
+  }
+
+  public long getCrc() {
+    if (this.buffer == null) return 0;
+    return buffer.getLong(getPosCrc());
   }
 
   public void setId(int id) {
@@ -233,9 +341,14 @@ public class RamcastMessage {
     this.slots = slots;
   }
 
-  public int getSlot() {
-    return slot;
-  }
+  // return the slot # of this message on group with groupIndex
+  //  public int getSlotOfGroupIndex(int groupIndex) {
+  //    return slots[groupIndex];
+  //  }
+  //
+  //  public int getSlotOfGroupId(int groupId) {
+  //    return slots[getGroupIndex(groupId)];
+  //  }
 
   public long getAddress() {
     return address;
@@ -246,11 +359,76 @@ public class RamcastMessage {
   }
 
   public int getId() {
-    if (this.id < 0) {
+    if (this.id <= 0) {
       this.id = ((ByteBuffer) this.buffer.clear()).getInt(POS_ID);
     }
     return id;
   }
 
-  public void reset() {}
+  public void reset() {
+    int posAcks = getPosAcks();
+    for (int i = 0; i < getGroupCount(); i++) {
+      for (int j = 0; j < RamcastConfig.getInstance().getNodePerGroup(); j++) {
+        getBuffer().putInt(posAcks, 0);
+        getBuffer().putInt(posAcks + 4, 0);
+        posAcks += RamcastConfig.SIZE_ACK;
+      }
+    }
+  }
+
+  // CONVENTION: Ack Position of a node depends on its ID
+  public int getPosAck(RamcastNode node) {
+    int groupIndex = getGroupIndex(node.getGroupId());
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace(
+          "[{}] getPosAck of node {} groupIndex {} getPosAcks() {}",
+          getId(),
+          node,
+          groupIndex,
+          getPosAcks());
+    return getPosAcks()
+        + groupIndex * RamcastConfig.SIZE_ACK * RamcastConfig.getInstance().getNodePerGroup()
+        + node.getNodeId() * RamcastConfig.SIZE_ACK;
+  }
+
+  public void writeAck(RamcastNode node, int ballotNumber, int sequenceNumber) {
+    int position = getPosAck(node);
+    this.buffer.putInt(position, ballotNumber);
+    this.buffer.putInt(position + 4, sequenceNumber);
+  }
+
+  public short getSlot() {
+    return slot;
+  }
+
+  public RamcastNode getSource() {
+    return this.source;
+  }
+
+  public int getFinalTs() {
+    return finalTs;
+  }
+
+  public void setFinalTs(int finalTs) {
+    this.finalTs = finalTs;
+  }
+
+  public int getAckBallotNumber(RamcastNode node) {
+    int position = getPosAck(node);
+    return this.buffer.getInt(position);
+  }
+
+  public boolean isAcked(int ballotNumber) {
+    for (int i = 0; i < this.getGroupCount(); i++) {
+      int count = 0;
+      for (int j = 0; j < config.getNodePerGroup(); j++) {
+        if (this.getAckBallot(i, j) > 0) count++;
+      }
+      // todo: change to check majority only
+      if (count < RamcastGroup.getQuorum(this.getGroup(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
