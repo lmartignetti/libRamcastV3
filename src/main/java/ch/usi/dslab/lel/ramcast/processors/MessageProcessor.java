@@ -53,33 +53,33 @@ public class MessageProcessor {
                               int tmpClock = pending.getClockValue();
                               if (tmpSequence <= 0) continue;
                               if (RamcastConfig.LOG_ENABLED)
-                                logger.debug(
-                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
-                                        pending.message.getId(),
-                                        tmpBallot,
-                                        tmpSequence,
-                                        pending.groupId,
-                                        group.getBallotNumber().get(),
-                                        group.getCurrentSequenceNumber().get(),
-                                        pendingTimestamps,
-                                        group.getTimestampBlock());
+                              logger.debug(
+                                      "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
+                                      pending.message.getId(),
+                                      tmpBallot,
+                                      tmpSequence,
+                                      pending.groupId,
+                                      group.getBallotNumber().get(),
+                                      group.getCurrentSequenceNumber().get(),
+                                      pendingTimestamps,
+                                      group.getTimestampBlock());
 
-                              // there is a case where that ts memory slot still has old value (which should be cleaned up). So need to chec
+                              // there is a case where that ts memory slot still has old value (which should be cleaned up). So need to check
                               // with the expected sequence number
-                              if (tmpSequence < group.getCurrentSequenceNumber().get()) {
-                                if (RamcastConfig.LOG_ENABLED)
-                                  logger.debug(
-                                          "[{}] timestamp [{}/{}] has sequence doesn't match to local {}",
-                                          pending.message.getId(),
-                                          tmpBallot,
-                                          tmpSequence,
-                                          group.getCurrentSequenceNumber().get());
-                                continue;
-                              }
+//                              if (tmpSequence < group.getCurrentSequenceNumber().get()) {
+//                                if (RamcastConfig.LOG_ENABLED)
+//                                  logger.trace(
+//                                          "[{}] timestamp [{}/{}] has sequence doesn't match to local {}",
+//                                          pending.message.getId(),
+//                                          tmpBallot,
+//                                          tmpSequence,
+//                                          group.getCurrentSequenceNumber().get());
+//                                continue;
+//                              }
 
                               if (tmpBallot != group.getBallotNumber().get()) {
                                 if (RamcastConfig.LOG_ENABLED)
-                                  logger.debug(
+                                  logger.trace(
                                           "[{}] timestamp [{}/{}] has babllot doesn't match to local {}",
                                           pending.message.getId(),
                                           tmpBallot,
@@ -115,7 +115,8 @@ public class MessageProcessor {
                                 }
                               }
 
-                              if (tmpSequence == group.getCurrentSequenceNumber().get() + 1) {
+//                              if (tmpSequence == group.getCurrentSequenceNumber().get() + 1) {
+                              if (tmpSequence == pending.getSequenceNumber()) {
                                 group.getCurrentSequenceNumber().incrementAndGet();
                                 group.getSequenceNumber().set(tmpSequence);
                                 if (!this.agent.isLeader()) group.getLocalClock().set(tmpClock);

@@ -3,7 +3,7 @@ import common
 
 NUM_GROUPS = 2
 NUM_PROCESSES = [3]
-NUM_CLIENTS = [1]
+NUM_CLIENTS = [3]
 
 NUM_DEST = 1
 DURATION = 60
@@ -11,8 +11,8 @@ WARMUP = 20
 
 PROFILING = True
 PROFILING = False
-DEBUG = False
 DEBUG = True
+DEBUG = False
 
 if PROFILING: DURATION = 9999
 
