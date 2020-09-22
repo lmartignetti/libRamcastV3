@@ -193,6 +193,10 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   public void releaseMemory(RamcastMessage message) throws IOException {
     RamcastMemoryBlock memoryBlock = message.getMemoryBlock();
+
+    // need to check if this message is eligible to be released: all processes in the quorum have acked
+//    while (!message.isAcked(this.getBallotNumber().get())) Thread.yield();
+
     //    int freed = memoryBlock.freeSlot(message.getSlotOfGroupId(agent.getGroupId()));
     int freed =
             memoryBlock.freeSlot(message.getGroupSlot(message.getGroupIndex(agent.getGroupId())));
@@ -208,7 +212,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       return;
     }
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace(
+      logger.debug(
               "[{}] SERVER MEMORY after releasing memory: {}",
               endpoint.getEndpointId(),
               endpoint.getSharedCellBlock());
@@ -470,10 +474,11 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       if (endpoint == null) continue;
       if (endpoint.getCompletionSignal() != -1 && endpoint.getCompletionSignal() != msgId) {
         if (RamcastConfig.LOG_ENABLED)
-          logger.trace(
-                  "[{}] endpoint of group {} is not ready for message {} Completion signal:{}",
+          logger.debug(
+                  "[{}] endpoint of group [{}] node [{}] is not ready for message {} Completion signal:{}",
                   endpoint.getEndpointId(),
                   groupId,
+                  endpoint.getNode(),
                   msgId,
                   endpoint.getCompletionSignal());
         return false;

@@ -92,11 +92,6 @@ public class BenchAgent {
                   );
                   latMonitor.logLatency(startTime, System.nanoTime());
                   tpMonitor.incrementCount();
-//                  try {
-//                    Thread.sleep(1000);
-//                  } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                  }
                 }
               }
             }
@@ -212,6 +207,11 @@ public class BenchAgent {
     if (agent.hasClientRole()) {
       while (true) {
         getPermit();
+//        try {
+//          Thread.sleep(1000);
+//        } catch (InterruptedException e) {
+//          e.printStackTrace();
+//        }
         int id = Objects.hash(i, this.clientId);
         //        id = i;
         sampleMessage = this.agent.createMessage(id, buffer, dest);
@@ -221,7 +221,7 @@ public class BenchAgent {
           logger.debug("Client {} start new request {} msgId {}", clientId, i, id);
         //        agent.multicast(sampleBuffer, dest); // for bemchmark only
         while (!agent.isAllDestReady(dest, lastMsgId)) {
-          Thread.sleep(0);
+          Thread.yield();
         }
         agent.multicast(sampleMessage, dest);
         lastMsgId = id;

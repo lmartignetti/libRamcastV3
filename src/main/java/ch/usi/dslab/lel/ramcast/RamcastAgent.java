@@ -28,17 +28,19 @@ public class RamcastAgent {
   private RamcastNode leader;
   private MessageDeliveredCallback onDeliverCallback;
 
+  private RamcastMessage lastDelivered;
+
   public RamcastAgent(int groupId, int nodeId) throws Exception {
     this(
-        groupId,
-        nodeId,
-        data -> {
-          if (RamcastConfig.LOG_ENABLED) logger.debug("Delivered message {}", data);
-        });
+            groupId,
+            nodeId,
+            data -> {
+              if (RamcastConfig.LOG_ENABLED) logger.debug("Delivered message {}", data);
+            });
   }
 
   public RamcastAgent(int groupId, int nodeId, MessageDeliveredCallback onDeliverCallback)
-      throws Exception {
+          throws Exception {
     MDC.put("ROLE", groupId + "/" + nodeId);
     this.node = RamcastNode.getNode(groupId, nodeId);
     this.onDeliverCallback = onDeliverCallback;
@@ -50,22 +52,22 @@ public class RamcastAgent {
     this.serverEp = endpointGroup.createServerEndpoint();
     this.serverEp.bind(this.node.getInetAddress(), 100);
     Thread listener =
-        new Thread(
-            () -> {
-              MDC.put("ROLE", node.getGroupId() + "/" + node.getNodeId());
-              while (true) {
-                try {
-                  RamcastEndpoint endpoint = this.serverEp.accept();
-                  while (!endpoint.isReady()) Thread.sleep(10);
-                  if (RamcastConfig.LOG_ENABLED)
-                    logger.debug(
-                        ">>> Server accept connection of endpoint {}. CONNECTION READY", endpoint);
-                } catch (IOException | InterruptedException e) {
-                  e.printStackTrace();
-                  logger.error("Error accepting connection", e);
-                }
-              }
-            });
+            new Thread(
+                    () -> {
+                      MDC.put("ROLE", node.getGroupId() + "/" + node.getNodeId());
+                      while (true) {
+                        try {
+                          RamcastEndpoint endpoint = this.serverEp.accept();
+                          while (!endpoint.isReady()) Thread.sleep(10);
+                          if (RamcastConfig.LOG_ENABLED)
+                            logger.debug(
+                                    ">>> Server accept connection of endpoint {}. CONNECTION READY", endpoint);
+                        } catch (IOException | InterruptedException e) {
+                          e.printStackTrace();
+                          logger.error("Error accepting connection", e);
+                        }
+                      }
+                    });
     listener.setName("ConnectionListener");
     listener.start();
   }
@@ -78,9 +80,9 @@ public class RamcastAgent {
       // todo: find nicer way for -1
       if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
       if (this.getEndpointMap().values().stream()
-          .map(RamcastEndpoint::isReady)
-          .reduce(Boolean::logicalAnd)
-          .get()) break;
+              .map(RamcastEndpoint::isReady)
+              .reduce(Boolean::logicalAnd)
+              .get()) break;
     }
 
     if (this.shouldBeLeader()) {
@@ -95,18 +97,18 @@ public class RamcastAgent {
       if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
       if (this.leader == null) continue;
       if (this.getEndpointMap().values().stream()
-          .map(RamcastEndpoint::hasExchangedPermissionData)
-          .reduce(Boolean::logicalAnd)
-          .get()) break;
+              .map(RamcastEndpoint::hasExchangedPermissionData)
+              .reduce(Boolean::logicalAnd)
+              .get()) break;
     }
 
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-          "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}, leader {}",
-          this.node,
-          this.getEndpointMap().keySet(),
-          this.getEndpointMap().values(),
-          this.leader);
+              "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}, leader {}",
+              this.node,
+              this.getEndpointMap().keySet(),
+              this.getEndpointMap().values(),
+              this.leader);
   }
 
   public Map<RamcastNode, RamcastEndpoint> getEndpointMap() {
@@ -127,7 +129,7 @@ public class RamcastAgent {
   }
 
   public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
-      throws IOException {
+          throws IOException {
     if (RamcastConfig.LOG_ENABLED)
       logger.debug("Multicasting to dest {} message {}", destinations, message);
     for (RamcastGroup group : destinations) {
@@ -144,7 +146,7 @@ public class RamcastAgent {
   //  }
 
   public RamcastMessage createMessage(
-      int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
+          int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
     int[] groups = new int[destinations.size()];
     destinations.forEach(group -> groups[destinations.indexOf(group)] = group.getId());
     RamcastMessage message = new RamcastMessage(buffer, groups);
@@ -216,15 +218,20 @@ public class RamcastAgent {
     endpointGroup.updateTsStatus(message);
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-          "[{}] Delivered at ts {} !!! {}, ts {}",
-          message.getId(),
-          message.getFinalTs(),
-          message,
-          endpointGroup.getTimestampBlock());
+              "[{}] Delivered at ts {} !!! {}, ts {}",
+              message.getId(),
+              message.getFinalTs(),
+              message,
+              endpointGroup.getTimestampBlock());
     onDeliverCallback.call(message);
     // update FUO
-    // todo: enable this
+//     todo: enable this
+
     this.endpointGroup.releaseMemory(message);
+//    if (lastDelivered != null) {
+//      this.endpointGroup.releaseMemory(lastDelivered);
+//    }
+//    lastDelivered = message;
   }
 
   public boolean hasClientRole() {

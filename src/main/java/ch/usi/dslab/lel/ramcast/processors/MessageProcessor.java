@@ -53,16 +53,16 @@ public class MessageProcessor {
                               int tmpClock = pending.getClockValue();
                               if (tmpSequence <= 0) continue;
                               if (RamcastConfig.LOG_ENABLED)
-                              logger.debug(
-                                      "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
-                                      pending.message.getId(),
-                                      tmpBallot,
-                                      tmpSequence,
-                                      pending.groupId,
-                                      group.getBallotNumber().get(),
-                                      group.getCurrentSequenceNumber().get(),
-                                      pendingTimestamps,
-                                      group.getTimestampBlock());
+                                logger.debug(
+                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
+                                        pending.message.getId(),
+                                        tmpBallot,
+                                        tmpSequence,
+                                        pending.groupId,
+                                        group.getBallotNumber().get(),
+                                        group.getCurrentSequenceNumber().get(),
+                                        pendingTimestamps,
+                                        group.getTimestampBlock());
 
                               // there is a case where that ts memory slot still has old value (which should be cleaned up). So need to check
                               // with the expected sequence number
@@ -130,14 +130,15 @@ public class MessageProcessor {
                                           pending.groupIndex,
                                           group.getCurrentSequenceNumber().get());
                                 if (pending.shouldAck() && !pending.isSendAck() && !this.agent.isLeader()) {
-                                  logger.debug(
-                                          "[{}] Start sending ack for timestamp [{}/{}] of group {} index {}, current seqnumber {}",
-                                          pending.message.getId(),
-                                          tmpBallot,
-                                          tmpSequence,
-                                          pending.groupId,
-                                          pending.groupIndex,
-                                          group.getCurrentSequenceNumber().get());
+                                  if (RamcastConfig.LOG_ENABLED)
+                                    logger.debug(
+                                            "[{}] Start sending ack for timestamp [{}/{}] of group {} index {}, current seqnumber {}",
+                                            pending.message.getId(),
+                                            tmpBallot,
+                                            tmpSequence,
+                                            pending.groupId,
+                                            pending.groupIndex,
+                                            group.getCurrentSequenceNumber().get());
                                   group.sendAck(
                                           pending.message,
                                           tmpBallot,
