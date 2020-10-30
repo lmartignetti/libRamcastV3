@@ -60,38 +60,12 @@ public class BenchAgent {
           new MessageDeliveredCallback() {
             @Override
             public void call(Object data) {
-              //          System.out.println(
-              //              ">>>>>> "
-              //                  //                  + agent.getNode()
-              //                  + " == "
-              //                  + ((RamcastMessage) data).getId()
-              //                  + " == "
-              //                  + (System.nanoTime() - startTime)
-              //              //                                + "\n"
-              //              //                                + (RamcastMessage) data
-              //              //                                + "\n"
-              //              //                                +
-              // agent.getEndpointGroup().getTimestampBlock()
-              //              );
-
               if (agent.hasClientRole()) {
                 if (((RamcastMessage) data).getMessage().getInt(0) == clientId) {
                   releasePermit();
-                  System.out.println(
-                          ">>>>>> "
-                                  + agent.getNode()
-                                  + " == "
-                                  + ((RamcastMessage) data).getId()
-                                  + " == "
-                                  + (System.nanoTime() - startTime)
-                          //                                                  + "\n"
-                          //                                                  + (RamcastMessage) data
-                          //                                                  + "\n"
-                          //                                                  +
-                          // agent.getEndpointGroup().getTimestampBlock()
-                  );
                   latMonitor.logLatency(startTime, System.nanoTime());
                   tpMonitor.incrementCount();
+//                  System.out.println(">>>>>> " + agent.getNode() + " == " + ((RamcastMessage) data).getId() + " == " + (System.nanoTime() - startTime));
                 }
               }
             }
@@ -178,10 +152,10 @@ public class BenchAgent {
     }
 
     this.agent.bind();
-    Thread.sleep(1000);
+    Thread.sleep(2000);
     this.agent.establishConnections();
     logger.info("NODE READY");
-    Thread.sleep(3000);
+    Thread.sleep(2000);
 
     this.startBenchmark();
   }
@@ -207,19 +181,18 @@ public class BenchAgent {
     if (agent.hasClientRole()) {
       while (true) {
         getPermit();
-//        try {
-//          Thread.sleep(1000);
-//        } catch (InterruptedException e) {
-//          e.printStackTrace();
-//        }
+        if (RamcastConfig.DELAY)
+          try {
+            Thread.sleep(1000);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
         int id = Objects.hash(i, this.clientId);
-        //        id = i;
         sampleMessage = this.agent.createMessage(id, buffer, dest);
         //        sampleBuffer.putInt(0, i);
         startTime = System.nanoTime();
         if (RamcastConfig.LOG_ENABLED)
           logger.debug("Client {} start new request {} msgId {}", clientId, i, id);
-        //        agent.multicast(sampleBuffer, dest); // for bemchmark only
         while (!agent.isAllDestReady(dest, lastMsgId)) {
           Thread.yield();
         }

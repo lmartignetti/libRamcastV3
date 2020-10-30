@@ -35,14 +35,15 @@ else:
     DEBUG = False
     PROFILING = False
 
+DELAY = False
 # RDMA config
-CONF_QUEUE_LENGTH = 3
+CONF_QUEUE_LENGTH = 64
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
 CONF_MAX_INLINE = 64
 CONF_PORT = 9000
-CONF_SIGNAL_INTERVAL = 16
+CONF_SIGNAL_INTERVAL = 4
 
 ROLE_CLIENT = 1
 ROLE_SERVER = 2
@@ -86,6 +87,7 @@ def gen_config():
     config["maxinline"] = CONF_MAX_INLINE
     config["signalInterval"] = CONF_SIGNAL_INTERVAL
     config["debug"] = DEBUG
+    config["delay"] = DELAY
 
     config["group_members"] = []
     i = 0
@@ -158,7 +160,7 @@ if common.ENV_EMULAB:
     # need to sync this sysConfig with other instances
     print "Syncing config file"
     os.system(
-        "/users/lel/apps/libramcast/libRamcastV2/bin/emulab/sync-code.sh /users/lel/apps/libramcast/libRamcastV2/bin/systemConfigs " + str(
+        "/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh /users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs " + str(
             node_used))
     time.sleep(5)
 

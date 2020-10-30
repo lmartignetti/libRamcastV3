@@ -62,6 +62,7 @@ public class RamcastConfig {
 
 
   public static boolean LOG_ENABLED = true; // flag for logging
+  public static boolean DELAY = false; // flag for logging
   private static RamcastConfig[] instances;
   private int timeout;
 
@@ -181,6 +182,9 @@ public class RamcastConfig {
       }
       if (config.containsKey("debug")) {
         LOG_ENABLED = (Boolean) (config.get("debug"));
+      }
+      if (config.containsKey("debug")) {
+        DELAY = (Boolean) (config.get("delay"));
       }
       if (config.containsKey("nodePerGroup")) {
         this.nodePerGroup = getJSInt(config, "nodePerGroup");

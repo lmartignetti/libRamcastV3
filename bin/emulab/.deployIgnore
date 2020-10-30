@@ -33,7 +33,7 @@ awscredentials.csv
 /vagrant-multi-machine
 /volery
 /zookeeper
-
+/libRamcastV2
 
 /libRamcastV2/logs/
 bench/logs

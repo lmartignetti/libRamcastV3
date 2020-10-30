@@ -137,14 +137,6 @@ public class RamcastAgent {
     }
   }
 
-  //  public void multicast(ByteBuffer buffer, List<RamcastGroup> destinations) throws IOException {
-  //    if (RamcastConfig.LOG_ENABLED)
-  //      logger.debug("Multicasting to dest {} buffer {}", destinations, buffer);
-  //    for (RamcastGroup group : destinations) {
-  //      this.endpointGroup.writeMessage(group, buffer);
-  //    }
-  //  }
-
   public RamcastMessage createMessage(
           int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
     int[] groups = new int[destinations.size()];
@@ -218,11 +210,11 @@ public class RamcastAgent {
     endpointGroup.updateTsStatus(message);
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-              "[{}] Delivered at ts {} !!! {}, ts {}",
+              "[{}] Delivered at ts {} !!! {}",
               message.getId(),
               message.getFinalTs(),
-              message,
-              endpointGroup.getTimestampBlock());
+              message);
+//              endpointGroup.getTimestampBlock());
     onDeliverCallback.call(message);
     // update FUO
 //     todo: enable this
@@ -240,6 +232,10 @@ public class RamcastAgent {
 
   public int getGroupId() {
     return this.node.getGroupId();
+  }
+
+  public int getNodeId() {
+    return this.node.getNodeId();
   }
 
   public boolean isAllDestReady(List<RamcastGroup> dests, int msgId) {

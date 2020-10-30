@@ -49,7 +49,7 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 20)
+    RDMA_NODES = emulab_noderange(1, 19)
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
@@ -59,14 +59,13 @@ else:
 ZK_NODES = ['192.168.3.9', '192.168.3.10', '192.168.3.11']
 ZK_HOST = '192.168.3.9:2181'
 
-GATHERER_HOST = "192.168.3.12" if ENV_CLUSTER else "10.10.1.1"
+GATHERER_HOST = "192.168.3.2" if ENV_CLUSTER else "10.10.1.1"
 GATHERER_PORT = 9999
 
 PATH_LIBRAMCAST_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/libRamcastV3')
 PATH_LIBRAMCAST_CP = os.path.normpath(PATH_LIBRAMCAST_HOME + '/target/classes')
 
-PATH_LIBDISNI_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/../disni') if ENV_EMULAB else os.path.normpath(
-    PATH_GLOBAL_HOME + '/disni')
+PATH_LIBDISNI_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/disni')
 PATH_LIBDISNI_CP = os.path.normpath(PATH_LIBDISNI_HOME + '/target/classes')
 
 PATH_NETWRAPPER_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/netwrapper')

@@ -45,24 +45,29 @@ public class MessageProcessor {
                     () -> {
                       try {
                         MDC.put("ROLE", agent.getGroupId() + "/" + agent.getNode().getNodeId());
-                        while (isRunning) {
+                        while (true) {
+                          if (!isRunning) Thread.yield();
                           if (pendingTimestamps.size() > 0)
                             for (PendingTimestamp pending : pendingTimestamps) {
                               int tmpSequence = pending.getSequenceNumber();
                               int tmpBallot = pending.getBallotNumber();
                               int tmpClock = pending.getClockValue();
-                              if (tmpSequence <= 0) continue;
+                              if (tmpSequence <= 0) {
+                                Thread.yield();
+                                continue;
+                              }
                               if (RamcastConfig.LOG_ENABLED)
                                 logger.debug(
-                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {} TS memory: \n {}",
+                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {}",// TS memory: \n {}",
                                         pending.message.getId(),
                                         tmpBallot,
                                         tmpSequence,
                                         pending.groupId,
                                         group.getBallotNumber().get(),
                                         group.getCurrentSequenceNumber().get(),
-                                        pendingTimestamps,
-                                        group.getTimestampBlock());
+                                        pendingTimestamps
+//                                        group.getTimestampBlock()
+                                );
 
                               // there is a case where that ts memory slot still has old value (which should be cleaned up). So need to check
                               // with the expected sequence number
@@ -86,6 +91,7 @@ public class MessageProcessor {
                                           tmpSequence,
                                           group.getBallotNumber().get());
                                 //                      if (!this.agent.isLeader())
+                                Thread.yield();
                                 continue;
                               }
 
@@ -111,6 +117,7 @@ public class MessageProcessor {
                                           pending.groupId,
                                           pending.groupIndex);
                                   pending.shouldPropagate = false;
+                                  Thread.yield();
                                   continue;
                                 }
                               }
@@ -152,16 +159,18 @@ public class MessageProcessor {
                             }
 
                           int minTs = Integer.MAX_VALUE;
-                          if (processing.size() > 0)
+                          if (processing.size() > 0) {
                             for (RamcastMessage message : processing) {
                               if (isFulfilled(message)) {
                                 message.setFinalTs(group.getTimestampBlock().getMaxTimestamp(message));
-                                this.processing.remove(message);
+                                logger.debug("[{}] finalts={} is fulfilled. BEFORE Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
                                 this.ordered.add(message);
-                              } else {
+                                this.processing.remove(message);
+                                logger.debug("[{}] finalts={} is fulfilled. AFTER Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
                               }
                               if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
                             }
+                          }
 
                           if (ordered.size() == 0) continue;
                           int minOrderedTs = Integer.MAX_VALUE;
@@ -192,7 +201,7 @@ public class MessageProcessor {
     }
     if (!message.isAcked(group.getBallotNumber().get())) {
       if (RamcastConfig.LOG_ENABLED)
-        logger.trace("[{}] fulfilled: NO - doesn't have enough ACKS {}", message.getId(), message);
+        logger.debug("[{}] fulfilled: NO - doesn't have enough ACKS {}", message.getId(), message);
       return false;
     }
     // there is a case where ts is not available at the check on line 55, but it is now. so need to
@@ -213,7 +222,7 @@ public class MessageProcessor {
     //    }
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug("Handling message {} ts block {}", message, group.getTimestampBlock());
+      logger.debug("Handling message {} ts block", message);
     int msgId = message.getId();
     if (RamcastConfig.LOG_ENABLED) logger.debug("[Recv][Step #1][msgId={}]", msgId);
     if (agent.isLeader()) {
@@ -242,6 +251,14 @@ public class MessageProcessor {
   //  public ConcurrentSkipListSet<RamcastMessage> getProcessing() {
   public Queue<RamcastMessage> getProcessing() {
     return processing;
+  }
+
+  public ConcurrentSkipListSet<RamcastMessage> getOrdered() {
+    return ordered;
+  }
+
+  public void setRunning(boolean running) {
+    isRunning = running;
   }
 
   private class PendingTimestamp {

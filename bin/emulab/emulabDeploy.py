@@ -28,7 +28,7 @@ GLOBAL_HOME = os.path.normpath(script_dir() + '/../../../')
 WHITECAST_HOME = "/Users/longle/Documents/Workspace/PhD/RDMA/samples/atomic-multicast"
 TARGET_WHITECAST_HOME = '/users/lel/apps/atomic-multicast'
 
-TARGET_NODE = "apt{}".format(HEAD_APT_NODE)
+TARGET_NODE = "apt{}.apt.emulab.net".format(HEAD_APT_NODE)
 TARGET_HOME = '/users/lel/apps/libramcast/'
 
 CMD_CREATE_DIR = ["ssh", TARGET_NODE, "'mkdir -p ", TARGET_HOME, "'"]
@@ -43,15 +43,15 @@ CMD_COPY_BUILD = ["rsync", "-rav", "--exclude-from='" + IGNORE_FILE + "'",
 CMD_COPY_BUILD = ' '.join([str(val) for val in CMD_COPY_BUILD])
 print CMD_COPY_BUILD
 os.system(CMD_COPY_BUILD)
+#
+# CMD_COPY_BUILD = ["rsync", "-rav", "--exclude-from='" + IGNORE_FILE + "'",
+#                   WHITECAST_HOME + "/bench", TARGET_NODE + ":" + TARGET_WHITECAST_HOME]
+#
+# CMD_COPY_BUILD = ' '.join([str(val) for val in CMD_COPY_BUILD])
+# print CMD_COPY_BUILD
+# os.system(CMD_COPY_BUILD)
 
-CMD_COPY_BUILD = ["rsync", "-rav", "--exclude-from='" + IGNORE_FILE + "'",
-                  WHITECAST_HOME + "/bench", TARGET_NODE + ":" + TARGET_WHITECAST_HOME]
-
-CMD_COPY_BUILD = ' '.join([str(val) for val in CMD_COPY_BUILD])
-print CMD_COPY_BUILD
-os.system(CMD_COPY_BUILD)
-
-CMD_SYNC = ["ssh", TARGET_NODE, "/users/lel/apps/libramcast/libRamcastV2/bin/emulab/sync-code.sh", TAIL_NODE]
+CMD_SYNC = ["ssh -o StrictHostKeyChecking=no", TARGET_NODE, "/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh", TAIL_NODE]
 CMD_SYNC = ' '.join([str(val) for val in CMD_SYNC])
 
 

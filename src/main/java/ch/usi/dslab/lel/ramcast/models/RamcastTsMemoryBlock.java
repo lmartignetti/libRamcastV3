@@ -48,6 +48,19 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
     return getSlotOffset(slot) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
   }
 
+  public int[] getTs(RamcastMessage message, int groupIndex) {
+    int[] ret = new int[3];
+    int nodeOffset = getNodeOffset(message.getSource());
+    int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
+    // ballotNumber
+    ret[0] = this.getBuffer().getInt(position);
+    // sequenceNumber
+    ret[1] = this.getBuffer().getInt(position + 4);
+    // localClock
+    ret[2] = this.getBuffer().getInt(position + 8);
+    return ret;
+  }
+
   public void writeLocalTs(
           RamcastMessage message,
           int groupIndex,
@@ -228,7 +241,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
               nodeOffset
                       + getSlotOffset(message.getGroupSlot(groupIndex))
                       + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
-      if (max < getBuffer().getInt(position + 8)) max = getBuffer().getInt(position + 8);
+      if (max < getBuffer().getInt(position + 4)) max = getBuffer().getInt(position + 4);
     }
     return max;
   }
@@ -241,7 +254,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
                       + getSlotOffset(message.getGroupSlot(groupIndex))
                       + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
       if (RamcastConfig.LOG_ENABLED)
-        logger.debug(
+        logger.trace(
                 "[{}] freeing memory at {} {} {} {}",
                 message.getId(),
                 position,
