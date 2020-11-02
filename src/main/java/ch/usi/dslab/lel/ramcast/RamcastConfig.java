@@ -30,7 +30,7 @@ public class RamcastConfig {
   // payload of a multicast message should not exceed this value
   public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_BUFFER_LENGTH;
   //  total size of timestamp, includes timestamp, ballot, value, status (delivered, pending)
-  public static final int SIZE_TIMESTAMP = 14;
+  public static final int SIZE_TIMESTAMP = 10;
   // total size of remote-head value, include value, msgId
   public static final int SIZE_REMOTE_HEAD = 8;
   // total size of ack message, including ACK VALUE, BALLOT

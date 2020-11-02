@@ -223,7 +223,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
 
   protected boolean _send(ByteBuffer buffer) throws IOException {
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace("[{}/-1] perform SEND to {}", this.endpointId, this.node);
+      logger.debug("[{}/-1] perform SEND to {}", this.endpointId, this.node);
     SVCPostSend postSend = verbCalls.freeSendPostSend.poll();
     if (postSend != null) {
       buffer.clear();

@@ -210,11 +210,11 @@ public class RamcastAgent {
     endpointGroup.updateTsStatus(message);
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-              "[{}] Delivered at ts {} !!! {}",
+              "[{}] Delivered at ts {} !!! {}, TS Memory {}",
               message.getId(),
               message.getFinalTs(),
-              message);
-//              endpointGroup.getTimestampBlock());
+              message,
+              endpointGroup.getTimestampBlock());
     onDeliverCallback.call(message);
     // update FUO
 //     todo: enable this

@@ -31,10 +31,9 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   private int timeout;
 
   // for leader election
-  private AtomicInteger currentBallotNumber;
-  private AtomicInteger sequenceNumber; // for sending
-  private AtomicInteger currentSequenceNumber; // for checking msg when receive
-  private AtomicInteger localClock; // for clock for ordering msg
+  private AtomicInteger round;
+  //  private AtomicInteger currentSequenceNumber; // for checking msg when receive
+  private AtomicInteger clock; // for clock for ordering msg
 
   // storing memory segment block associated with each endpoint
   //  private Map<RamcastEndpoint, RamcastMemoryBlock> endpointMemorySegmentMap;
@@ -79,11 +78,11 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     this.handshakingProcessor = new HandshakingProcessor(this, agent);
     this.leaderElectionProcessor = new LeaderElectionProcessor(this, agent);
     this.messageProcessor = new MessageProcessor(this, agent);
-    this.currentBallotNumber = new AtomicInteger(0);
-    this.sequenceNumber = new AtomicInteger(0);
-    this.currentSequenceNumber = new AtomicInteger(0);
+    this.round = new AtomicInteger(0);
+//    this.sequenceNumber = new AtomicInteger(0);
+//    this.currentSequenceNumber = new AtomicInteger(0);
     this.incomingEndpoints = new ArrayList<>(0);
-    this.localClock = new AtomicInteger(0);
+    this.clock = new AtomicInteger(0);
     //    this.endpointMemorySegmentMap = new ConcurrentHashMap<>();
   }
 
@@ -152,16 +151,24 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   public void requestWritePermission() throws IOException, InterruptedException {
-    this.currentBallotNumber.incrementAndGet();
+    this.round.incrementAndGet();
+    this.leaderElectionProcessor.getAcks().set(0);
     for (RamcastEndpoint endpoint : this.getNodeEndpointMap().values()) {
-      this.leaderElectionProcessor.requestWritePermission(endpoint, this.currentBallotNumber.get());
+      this.leaderElectionProcessor.requestWritePermission(endpoint, this.round.get());
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(">>> Client exchanged permission data to: {}.", endpoint.getNode());
     }
     // wait for receiving acks from all nodes
     while (this.leaderElectionProcessor.getAcks().get()
             // todo: find nicer way for -1
-            != RamcastGroup.getTotalNodeCount()) Thread.sleep(10);
+            != RamcastGroup.getTotalNodeCount()) {
+      logger.debug(
+              ">>> Waiting for pending acks. {}/{}",
+              this.leaderElectionProcessor.getAcks().get(),
+              RamcastGroup.getTotalNodeCount()
+      );
+      Thread.sleep(100);
+    }
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
               ">>> Client FINISHED exchanging permission to {} nodes.",
@@ -220,9 +227,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   }
 
   // a node writes its timestamp to ts mem of remote node, at its index
-  public void writeTimestamp(
-          RamcastMessage message, int ballotNumber, int sequenceNumber, int localClock)
-          throws IOException {
+  public void writeTimestamp(RamcastMessage message, int round, int clock) throws IOException {
     // for each group in the destination
     int thisGroupIndex = message.getGroupIndex(this.agent.getGroupId());
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
@@ -234,8 +239,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                 message.getId(),
                 agent.getGroupId(),
                 groupId,
-                ballotNumber,
-                sequenceNumber,
+                round,
+                clock,
                 groupEndpointsMap);
       // for each endpoint of the destination group
       for (RamcastEndpoint endpoint : groupEndpointsMap.get(groupId)) {
@@ -250,51 +255,40 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                       "[{}] group [{}] updates ts value [{}/{}] for its local buffer on {} at index {} epi {}",
                       message.getId(),
                       agent.getGroupId(),
-                      ballotNumber,
-                      sequenceNumber,
+                      round,
+                      clock,
                       endpoint.getNode(),
                       thisGroupIndex,
                       endpoint.getEndpointId());
-            timestampBlock.writeLocalTs(
-                    message, thisGroupIndex, ballotNumber, sequenceNumber, localClock);
+            timestampBlock.writeLocalTs(message, thisGroupIndex, round, clock);
           } else {
             if (RamcastConfig.LOG_ENABLED)
               logger.debug(
                       "[{}] group [{}] updates ts value [{}/{}] on {} at index {} epi {}",
                       message.getId(),
                       agent.getGroupId(),
-                      ballotNumber,
-                      sequenceNumber,
+                      round,
+                      clock,
                       endpoint.getNode(),
                       thisGroupIndex,
                       endpoint.getEndpointId());
-            writeTimestamp(
-                    endpoint, message, thisGroupIndex, ballotNumber, sequenceNumber, localClock);
+            writeTimestamp(endpoint, message, thisGroupIndex, round, clock);
           }
         }
       }
     }
   }
 
-  public void writeTimestamp(
-          RamcastEndpoint endpoint,
-          RamcastMessage message,
-          int groupIndex,
-          int ballotNumber,
-          int sequenceNumber,
-          int value)
-          throws IOException {
+  public void writeTimestamp(RamcastEndpoint endpoint, RamcastMessage message, int groupIndex, int round, int clock) throws IOException {
     RamcastTsMemoryBlock timestampBlock = endpoint.getRemoteTimeStampBlock();
     long address = timestampBlock.getNodeTimestampAddress(message, groupIndex);
     endpoint.writeSignal(
             address,
             timestampBlock.getLkey(),
             Integer.TYPE,
-            ballotNumber,
+            round,
             Integer.TYPE,
-            sequenceNumber,
-            Integer.TYPE,
-            value);
+            clock);
   }
 
   // for unit test
@@ -302,9 +296,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
           RamcastEndpoint endpoint,
           int slot,
           int groupIndex,
-          int ballotNumber,
-          int sequenceNumber,
-          int value)
+          int round,
+          int clock)
           throws IOException {
     RamcastTsMemoryBlock timestampBlock = endpoint.getRemoteTimeStampBlock();
     long address = timestampBlock.getNodeTimestampAddress(slot, endpoint.getNode(), groupIndex);
@@ -312,11 +305,9 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             address,
             timestampBlock.getLkey(),
             Integer.TYPE,
-            ballotNumber,
+            round,
             Integer.TYPE,
-            sequenceNumber,
-            Integer.TYPE,
-            value);
+            clock);
   }
 
   public void writeRemoteHeadOnClient(RamcastEndpoint endpoint, int headOffset, int msgId)
@@ -331,16 +322,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             msgId);
   }
 
-  public void leaderPropageTs(
-          RamcastMessage message, int ballotNumber, int clock, int groupId, int groupIndex)
+  public void leaderPropageTs(RamcastMessage message, int round, int clock, int groupId, int groupIndex)
           throws IOException {
-    int newSeqNumber = this.sequenceNumber.incrementAndGet();
     if (RamcastConfig.LOG_ENABLED) logger.debug(
             "[{}] leader of group {} propagating timestamp [{}/{}/{}] of group {} index {} ",
             message.getId(),
             agent.getGroupId(),
-            ballotNumber,
-            newSeqNumber,
+            round,
             clock,
             groupId,
             groupIndex);
@@ -353,26 +341,24 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                   "[{}] group [{}] propagate ts value [{}/{}/{}] for its local buffer on {} at index {} epi {}",
                   message.getId(),
                   agent.getGroupId(),
-                  ballotNumber,
-                  newSeqNumber,
+                  round,
                   clock,
                   endpoint.getNode(),
                   groupIndex,
                   endpoint.getEndpointId());
-        timestampBlock.writeLocalTs(message, groupIndex, ballotNumber, newSeqNumber, clock);
+        timestampBlock.writeLocalTs(message, groupIndex, round, clock);
       } else {
         if (RamcastConfig.LOG_ENABLED)
           logger.debug(
                   "[{}] group [{}] propagate ts value [{}/{}/{}] on {} at index {} epi {}",
                   message.getId(),
                   agent.getGroupId(),
-                  ballotNumber,
-                  newSeqNumber,
+                  round,
                   clock,
                   endpoint.getNode(),
                   groupIndex,
                   endpoint.getEndpointId());
-        writeTimestamp(endpoint, message, groupIndex, ballotNumber, newSeqNumber, clock);
+        writeTimestamp(endpoint, message, groupIndex, round, clock);
       }
     }
   }
@@ -395,7 +381,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
           if (endpoint == null) continue;
           if (endpoint.getNode() == agent.getNode()) {
             if (RamcastConfig.LOG_ENABLED)
-              logger.debug(
+              logger.trace(
                       "[{}] {} sending acks for timestamp [{}/{}] of group {} index {} to local buffer {}",
                       message.getId(),
                       agent.getNode(),
@@ -406,10 +392,10 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                       endpoint.getNode());
             message.writeAck(endpoint.getNode(), ballotNumber, sequenceNumber);
             if (RamcastConfig.LOG_ENABLED)
-              logger.debug("[{}] message after writing local ack {}", message.getId(), message);
+              logger.trace("[{}] message after writing local ack {}", message.getId(), message);
           } else {
             if (RamcastConfig.LOG_ENABLED)
-              logger.debug(
+              logger.trace(
                       "[{}] {} sending acks for timestamp [{}/{}] of group {} index {} to remote memory {}",
                       message.getId(),
                       agent.getNode(),
@@ -445,7 +431,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     // need to add 4 bytes here
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "[{}] write ack to {} pos in shared segment: {}, base address {}, absolute addr {}, offset of this ack {}, absolute add of offset {}",
               message.getId(),
               endpoint.getNode(),
@@ -514,8 +500,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     return nodeEndpointMap;
   }
 
-  public AtomicInteger getBallotNumber() {
-    return currentBallotNumber;
+  public AtomicInteger getRound() {
+    return round;
   }
 
   public Map<Integer, List<RamcastEndpoint>> getGroupEndpointsMap() {
@@ -561,10 +547,11 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       RamcastCqProcessor<RamcastEndpoint> cqProcessor;
       int key = context.getCmd_fd();
       if (!cqMap.containsKey(key)) {
-        int cqSize = (config.getQueueLength() * 2) * 3 * RamcastGroup.getTotalNodeCount() * 2; // added *2 at the end. TODO: check this
+        int cqSize = (config.getQueueLength() * 2) * 3 * RamcastGroup.getTotalNodeCount(); // added *2 at the end. TODO: check this
+        int wrSize = RamcastGroup.getTotalNodeCount() * RamcastGroup.getTotalNodeCount();
         cqProcessor =
                 new RamcastCqProcessor<>(
-                        context, cqSize, config.getQueueLength(), 0, 1, this.timeout, config.isPolling());
+                        context, cqSize, wrSize, 0, 1, this.timeout, config.isPolling());
         cqMap.put(context.getCmd_fd(), cqProcessor);
         cqProcessor.start();
       }
@@ -633,70 +620,70 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 //    syncState();
   }
 
-  private void processPendingMessage(RamcastMessage message) {
-    // if the message has enough ack, but doesn't have timestamp
-    // => read message timestamp from one process in the quorum and deliver it
-    if (message.isAcked(getBallotNumber().get())) {
-      if (!timestampBlock.isFulfilled(message)) {
-        // TODO: somehow obtain the ballot number
-        int ballotNumber = 100;
-        // and sequence number
-        int sequenceNumber = 100;
-        timestampBlock.writeLocalTs(message, message.getGroupIndex(agent.getGroupId()), ballotNumber, sequenceNumber, localClock.getAndIncrement());
-        int finalTs = timestampBlock.getMaxTimestamp(message);
-        logger.debug("[{}] LEADER ELECT - msg is acked but doesn't have timestamp => propagate it with value [{}/{}/{}] finalTS {}", message.getId(), ballotNumber, sequenceNumber, localClock.get(), finalTs);
-        message.setFinalTs(timestampBlock.getMaxTimestamp(message));
-        // remove it from processing queue
-        messageProcessor.getProcessing().remove(message);
-        // add to ordered queue
-        messageProcessor.getOrdered().add(message);
-        return;
-      } else {
-        logger.debug("[{}] LEADER ELECT - msg is acked and have ts => just wait to be delivered", message.getId());
-        return;
-      }
-    }
-
-
-    logger.debug("[{}] LEADER ELECT - msg is not acked, process as normal msg", message.getId());
-    messageProcessor.handleMessage(message);
-  }
-
-
-  private void syncState() throws IOException, InterruptedException {
-    Map<RamcastEndpoint, RamcastTsMemoryBlock> tsBlocks = new HashMap<>();
-//    for (RamcastEndpoint endpoint : groupEndpointsMap.get(agent.getGroupId())) {
-//      RamcastTsMemoryBlock tsBlock = endpoint.readTimestampMemorySpace();
-//      logger.debug(
-//              "read ts block cap {} from endpoint {} {}. the last position {}:[{}/{}/{}/{}]",
-//              tsBlock.getCapacity(),
-//              endpoint,
-//              tsBlock,
-//              tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1,
-//              tsBlock.readSlotBallot(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
-//              tsBlock.readSlotSequence(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
-//              tsBlock.readSlotValue(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
-//              tsBlock.readSlotStatus(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1));
-//      tsBlocks.put(endpoint, tsBlock);
-//    }
-
-//    for (int i = 0; i < timestampBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP; i++) {
-//      int thisBallot = timestampBlock.readSlotBallot(i);
-//      int thisSequence = timestampBlock.readSlotSequence(i);
-//      int thisValue = timestampBlock.readSlotValue(i);
-//      byte thisStatus = timestampBlock.readSlotStatus(i);
-//      for (Map.Entry<RamcastEndpoint, RamcastTsMemoryBlock> entry : tsBlocks.entrySet()) {
-//        RamcastEndpoint endpoint = entry.getKey();
-//        RamcastTsMemoryBlock tsMemoryBlock = entry.getValue();
-//        int thatBallot = tsMemoryBlock.readSlotBallot(i);
-//        int thatSequence = tsMemoryBlock.readSlotSequence(i);
-//        int thatValue = tsMemoryBlock.readSlotValue(i);
-//        byte thatStatus = tsMemoryBlock.readSlotStatus(i);
-//
-////        if (thisBallot )
+//  private void processPendingMessage(RamcastMessage message) {
+//    // if the message has enough ack, but doesn't have timestamp
+//    // => read message timestamp from one process in the quorum and deliver it
+//    if (message.isAcked(getRound().get())) {
+//      if (!timestampBlock.isFulfilled(message)) {
+//        // TODO: somehow obtain the ballot number
+//        int ballotNumber = 100;
+//        // and sequence number
+//        int sequenceNumber = 100;
+//        timestampBlock.writeLocalTs(message, message.getGroupIndex(agent.getGroupId()), ballotNumber, sequenceNumber, clock.getAndIncrement());
+//        int finalTs = timestampBlock.getMaxTimestamp(message);
+//        logger.debug("[{}] LEADER ELECT - msg is acked but doesn't have timestamp => propagate it with value [{}/{}/{}] finalTS {}", message.getId(), ballotNumber, sequenceNumber, clock.get(), finalTs);
+//        message.setFinalTs(timestampBlock.getMaxTimestamp(message));
+//        // remove it from processing queue
+//        messageProcessor.getProcessing().remove(message);
+//        // add to ordered queue
+//        messageProcessor.getOrdered().add(message);
+//        return;
+//      } else {
+//        logger.debug("[{}] LEADER ELECT - msg is acked and have ts => just wait to be delivered", message.getId());
+//        return;
 //      }
 //    }
-  }
+//
+//
+//    logger.debug("[{}] LEADER ELECT - msg is not acked, process as normal msg", message.getId());
+//    messageProcessor.handleMessage(message);
+//  }
+
+
+//  private void syncState() throws IOException, InterruptedException {
+//    Map<RamcastEndpoint, RamcastTsMemoryBlock> tsBlocks = new HashMap<>();
+////    for (RamcastEndpoint endpoint : groupEndpointsMap.get(agent.getGroupId())) {
+////      RamcastTsMemoryBlock tsBlock = endpoint.readTimestampMemorySpace();
+////      logger.debug(
+////              "read ts block cap {} from endpoint {} {}. the last position {}:[{}/{}/{}/{}]",
+////              tsBlock.getCapacity(),
+////              endpoint,
+////              tsBlock,
+////              tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1,
+////              tsBlock.readSlotBallot(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
+////              tsBlock.readSlotSequence(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
+////              tsBlock.readSlotValue(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1),
+////              tsBlock.readSlotStatus(tsBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP - 1));
+////      tsBlocks.put(endpoint, tsBlock);
+////    }
+//
+////    for (int i = 0; i < timestampBlock.getCapacity() / RamcastConfig.SIZE_TIMESTAMP; i++) {
+////      int thisBallot = timestampBlock.readSlotBallot(i);
+////      int thisSequence = timestampBlock.readSlotSequence(i);
+////      int thisValue = timestampBlock.readSlotValue(i);
+////      byte thisStatus = timestampBlock.readSlotStatus(i);
+////      for (Map.Entry<RamcastEndpoint, RamcastTsMemoryBlock> entry : tsBlocks.entrySet()) {
+////        RamcastEndpoint endpoint = entry.getKey();
+////        RamcastTsMemoryBlock tsMemoryBlock = entry.getValue();
+////        int thatBallot = tsMemoryBlock.readSlotBallot(i);
+////        int thatSequence = tsMemoryBlock.readSlotSequence(i);
+////        int thatValue = tsMemoryBlock.readSlotValue(i);
+////        byte thatStatus = tsMemoryBlock.readSlotStatus(i);
+////
+//////        if (thisBallot )
+////      }
+////    }
+//  }
 
   public void close() throws IOException, InterruptedException {
     super.close();
@@ -733,21 +720,21 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     }
   }
 
-  public void setBallotNumber(int ballotNumnber) {
-    currentBallotNumber.set(ballotNumnber);
+  public void seRoundNumber(int ballotNumnber) {
+    round.set(ballotNumnber);
   }
 
-  public AtomicInteger getSequenceNumber() {
-    return sequenceNumber;
-  }
+//  public AtomicInteger getSequenceNumber() {
+//    return sequenceNumber;
+//  }
 
   public RamcastTsMemoryBlock getTimestampBlock() {
     return timestampBlock;
   }
 
-  public AtomicInteger getCurrentSequenceNumber() {
-    return currentSequenceNumber;
-  }
+//  public AtomicInteger getCurrentSequenceNumber() {
+//    return currentSequenceNumber;
+//  }
 
   public MessageProcessor getMessageProcessor() {
     return messageProcessor;
@@ -771,8 +758,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     return incomingEndpoints;
   }
 
-  public AtomicInteger getLocalClock() {
-    return localClock;
+  public AtomicInteger getClock() {
+    return clock;
   }
 
   public void updateTsStatus(RamcastMessage message) {
