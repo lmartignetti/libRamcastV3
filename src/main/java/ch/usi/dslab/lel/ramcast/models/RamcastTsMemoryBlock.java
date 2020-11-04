@@ -59,7 +59,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
     int nodeOffset = getNodeOffset(message.getSource());
     int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "[{}] Writing to slot {} index {} round {} clock {} position {}",
               message.getId(),
               message.getGroupSlot(groupIndex),

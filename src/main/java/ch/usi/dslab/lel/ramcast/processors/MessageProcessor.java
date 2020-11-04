@@ -10,6 +10,8 @@ import org.slf4j.MDC;
 
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -29,6 +31,9 @@ public class MessageProcessor {
   private RamcastAgent agent;
   private Thread pendingMessageProcessor;
   private boolean isRunning = true;
+
+
+  private Map ts = new HashMap<>();
 
   public MessageProcessor(RamcastEndpointGroup group, RamcastAgent agent) {
     this.group = group;
@@ -57,19 +62,19 @@ public class MessageProcessor {
                               }
 
                               // set clock
-                              group.getClock().set(Math.max(tmpClock, group.getClock().get()));
+                              group.getClock().setValue(Math.max(tmpClock, group.getClock().get()));
 
                               if (RamcastConfig.LOG_ENABLED)
                                 logger.debug(
-                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {}, TS memory: \n {}",
+                                        "[{}] receive ts: [{}/{}] of group {}. Local value [{}/{}], pendingTimestamps {}",//, TS memory: \n {}",
                                         pending.message.getId(),
                                         tmpRound,
                                         tmpClock,
                                         pending.groupId,
                                         group.getRound().get(),
                                         group.getClock().get(),
-                                        pendingTimestamps,
-                                        group.getTimestampBlock()
+                                        pendingTimestamps
+//                                        group.getTimestampBlock()
                                 );
 
                               // Leader Election
@@ -88,7 +93,7 @@ public class MessageProcessor {
                               // if this is leader, this should propagate the msg to local group if possible
                               if (this.agent.isLeader()) {
                                 if (pending.groupId != this.agent.getGroupId() && pending.shouldPropagate()) {
-                                  int newClock = group.getClock().incrementAndGet();
+//                                  int newClock = group.getClock().incrementAndGet();
                                   if (RamcastConfig.LOG_ENABLED)
                                     logger.debug(
                                             "[{}] remove pending timestamp [{}/{}] of group {} index {}  -- LEADER process propagate ts with value [{}/{}]",
@@ -98,11 +103,11 @@ public class MessageProcessor {
                                             pending.groupId,
                                             pending.groupIndex,
                                             tmpRound,
-                                            newClock);
+                                            tmpClock);
                                   group.leaderPropageTs(
                                           pending.message,
                                           tmpRound,
-                                          newClock,
+                                          tmpClock,
                                           pending.groupId,
                                           pending.groupIndex);
                                   pending.shouldPropagate = false;
@@ -111,14 +116,14 @@ public class MessageProcessor {
                                 }
                               }
 
+//                              if (this.ts.keySet().contains(tmpClock)) {
+//                                System.out.println("DUPLICATED CLOCK " + tmpClock + " - old " + this.ts.get(tmpClock) + " - new " + pending.message.getId());
+//                              } else {
+//                                this.ts.put(tmpClock, pending.message.getId());
+//                              }
 
-//                              if (tmpSequence == group.getCurrentSequenceNumber().get() + 1) {
-//                              if (tmpSequence == pending.getSequenceNumber()) {
-//                                group.getCurrentSequenceNumber().incrementAndGet();
-//                                group.getSequenceNumber().set(tmpSequence);
-//                                if (!this.agent.isLeader()) group.getClock().set(tmpClock);
                               if (RamcastConfig.LOG_ENABLED)
-                                logger.debug(
+                                logger.trace(
                                         "[{}] remove pending timestamp [{}/{}] of group {} index {}",
                                         pending.message.getId(),
                                         tmpRound,
@@ -137,24 +142,33 @@ public class MessageProcessor {
                                 pending.sendAck = true;
                               }
                               pendingTimestamps.remove(pending);
-//                              }
                             }
+
 
                           int minTs = Integer.MAX_VALUE;
                           if (processing.size() > 0) {
                             for (RamcastMessage message : processing) {
                               if (isFulfilled(message)) {
                                 message.setFinalTs(group.getTimestampBlock().getMaxTimestamp(message));
-                                logger.debug("[{}] finalts={} is fulfilled. BEFORE Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
+//                                logger.debug("[{}] finalts={} is fulfilled. BEFORE Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
                                 this.ordered.add(message);
                                 this.processing.remove(message);
-                                logger.debug("[{}] finalts={} is fulfilled. AFTER Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
+                                if (RamcastConfig.LOG_ENABLED) {
+                                  logger.debug("[{}] finalts={} is fulfilled. AFTER Remove from processing, put to order. order size={}", message.getId(), message.getFinalTs(), ordered.size());
+                                  if (ordered.size() > 0) {
+                                    for (RamcastMessage m : ordered)
+                                      logger.debug("[{}] Orderd timesgtamp ts: {}", m.getId(), m.getFinalTs());
+                                  }
+                                }
                               }
                               if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
                             }
                           }
 
-                          if (ordered.size() == 0) continue;
+                          if (ordered.size() == 0) {
+                            Thread.yield();
+                            continue;
+                          }
                           int minOrderedTs = Integer.MAX_VALUE;
                           if (ordered.first() != null) minOrderedTs = ordered.first().getFinalTs();
 
@@ -183,7 +197,7 @@ public class MessageProcessor {
     }
     if (!message.isAcked(group.getRound().get())) {
       if (RamcastConfig.LOG_ENABLED)
-        logger.debug("[{}] fulfilled: NO - doesn't have enough ACKS {}", message.getId(), message);
+        logger.trace("[{}] fulfilled: NO - doesn't have enough ACKS {}", message.getId(), message);
       return false;
     }
     // there is a case where ts is not available at the check on line 55, but it is now. so need to
@@ -195,27 +209,28 @@ public class MessageProcessor {
   }
 
   public void handleMessage(RamcastMessage message) {
-    if (RamcastConfig.LOG_ENABLED)
-      logger.debug("Handling message {} ts block", message);
     int msgId = message.getId();
-    if (RamcastConfig.LOG_ENABLED) logger.debug("[Recv][Step #1][msgId={}]", msgId);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug("[{}] Receiving new message", msgId);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[Recv][Step #1][msgId={}]", msgId);
     if (agent.isLeader()) {
-      if (RamcastConfig.LOG_ENABLED) logger.debug("[{}] Leader processing...", msgId);
+      if (RamcastConfig.LOG_ENABLED) logger.trace("[{}] Leader processing...", msgId);
       try {
+//        System.out.println(clock + " - " + msgId+" - "+ agent.getNode());
         group.writeTimestamp(message, group.getRound().get(), group.getClock().incrementAndGet());
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
 
-    if (RamcastConfig.LOG_ENABLED) logger.debug("[{}] Process processing...", msgId);
+    if (RamcastConfig.LOG_ENABLED) logger.trace("[{}] Process processing...", msgId);
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
       PendingTimestamp ts = new PendingTimestamp(message, groupIndex);
       pendingTimestamps.add(ts);
     }
     this.processing.add(message);
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug("[{}] pendingTimestamps array {}", msgId, pendingTimestamps);
+      logger.trace("[{}] pendingTimestamps array {}", msgId, pendingTimestamps);
   }
 
   //  public ConcurrentSkipListSet<RamcastMessage> getProcessing() {

@@ -112,6 +112,16 @@ public class RamcastMessage {
             + RamcastConfig.SIZE_CHECKSUM;
   }
 
+  public static int calculateOverhead(int groupCount) {
+    return RamcastConfig.SIZE_MSG_ID
+            + RamcastConfig.SIZE_MSG_LENGTH
+            + RamcastConfig.SIZE_MSG_GROUP_COUNT
+            + groupCount * RamcastConfig.SIZE_MSG_GROUP
+            + groupCount * RamcastConfig.SIZE_MSG_SLOT
+            + RamcastConfig.SIZE_CHECKSUM
+            + 64; // TODO: find correct value for this
+  }
+
   public ByteBuffer toBuffer() {
     ByteBuffer ret = ByteBuffer.allocateDirect(this.calculateBasedLength());
     this.message.clear();
@@ -129,7 +139,7 @@ public class RamcastMessage {
     long crc = StringUtils.calculateCrc32((ByteBuffer) ret.position(0).limit(pos));
     ret.clear();
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug("Current pos: {}, cap {}, crc {}", pos, ret.capacity(), crc);
+      logger.trace("Current pos: {}, cap {}, crc {}", pos, ret.capacity(), crc);
     ret.putLong(pos, crc);
     return ret;
   }

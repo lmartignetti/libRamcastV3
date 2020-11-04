@@ -211,11 +211,11 @@ public class RamcastConfig {
 
         int nid = getJSInt(gmnode, "nid");
         int gid = getJSInt(gmnode, "gid");
-        int roleId = getJSInt(gmnode, "role");
+//        int roleId = getJSInt(gmnode, "role");
         String host = (String) gmnode.get("host");
         int port = getJSInt(gmnode, "port");
 
-        RamcastNode node = new RamcastNode(host, port, gid, nid, roleId);
+        RamcastNode node = new RamcastNode(host, port, gid, nid, 2); //role is server
         if (node.hasServerRole()) {
           RamcastGroup group = RamcastGroup.getOrCreateGroup(gid);
           group.addNode(node);

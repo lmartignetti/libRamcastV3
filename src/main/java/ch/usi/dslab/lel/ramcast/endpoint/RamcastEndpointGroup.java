@@ -33,7 +33,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
   // for leader election
   private AtomicInteger round;
   //  private AtomicInteger currentSequenceNumber; // for checking msg when receive
-  private AtomicInteger clock; // for clock for ordering msg
+  private AtomicVectorClock clock; // for clock for ordering msg
 
   // storing memory segment block associated with each endpoint
   //  private Map<RamcastEndpoint, RamcastMemoryBlock> endpointMemorySegmentMap;
@@ -82,7 +82,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 //    this.sequenceNumber = new AtomicInteger(0);
 //    this.currentSequenceNumber = new AtomicInteger(0);
     this.incomingEndpoints = new ArrayList<>(0);
-    this.clock = new AtomicInteger(0);
+    this.clock = new AtomicVectorClock(this.agent.getGroupId(), 0);
     //    this.endpointMemorySegmentMap = new ConcurrentHashMap<>();
   }
 
@@ -109,7 +109,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 
   public void writeMessage(RamcastGroup group, ByteBuffer buffer) throws IOException {
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "Write message to {}, buffer {}, ep {}",
               group,
               buffer,
@@ -195,6 +195,11 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     serverDataPolling.start();
   }
 
+  public void releaseTimestamp(RamcastMessage message) {
+    // free ts
+    timestampBlock.freeTimestamp(message);
+  }
+
   public void releaseMemory(RamcastMessage message) throws IOException {
     RamcastMemoryBlock memoryBlock = message.getMemoryBlock();
 
@@ -204,8 +209,6 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     //    int freed = memoryBlock.freeSlot(message.getSlotOfGroupId(agent.getGroupId()));
     int freed = memoryBlock.freeSlot(message.getGroupSlot(message.getGroupIndex(agent.getGroupId())));
     RamcastEndpoint endpoint = message.getMemoryBlock().getEndpoint();
-    // free ts
-    timestampBlock.freeTimestamp(message);
 
     if (freed == 0) {
       if (RamcastConfig.LOG_ENABLED)
@@ -214,13 +217,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       return;
     }
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "[{}] SERVER MEMORY after releasing memory: {}",
               endpoint.getEndpointId(),
               endpoint.getSharedCellBlock());
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "[{}] Released memory of {} slot. Update client [{}].", message.getId(), freed, endpoint);
     this.writeRemoteHeadOnClient(endpoint, freed, message.getId());
     message.reset();
@@ -235,13 +238,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       int groupId = message.getGroup(groupIndex);
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-                "[{}] SERVER PUT TS of group [{}] to memory of group [{}] with value [{}/{}] groupEndpointsMap={}",
+                "[{}] SERVER PUT TS of group [{}] to memory of group [{}] with value [{}/{}]",
                 message.getId(),
                 agent.getGroupId(),
                 groupId,
                 round,
-                clock,
-                groupEndpointsMap);
+                clock
+        );
       // for each endpoint of the destination group
       for (RamcastEndpoint endpoint : groupEndpointsMap.get(groupId)) {
         if (endpoint == null) continue; // endpoint could be null due to failed process
@@ -251,7 +254,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                   .getNode()
                   .equals(agent.getNode())) { // if the node is writing to itself -> do local
             if (RamcastConfig.LOG_ENABLED)
-              logger.debug(
+              logger.trace(
                       "[{}] group [{}] updates ts value [{}/{}] for its local buffer on {} at index {} epi {}",
                       message.getId(),
                       agent.getGroupId(),
@@ -263,7 +266,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             timestampBlock.writeLocalTs(message, thisGroupIndex, round, clock);
           } else {
             if (RamcastConfig.LOG_ENABLED)
-              logger.debug(
+              logger.trace(
                       "[{}] group [{}] updates ts value [{}/{}] on {} at index {} epi {}",
                       message.getId(),
                       agent.getGroupId(),
@@ -367,7 +370,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
           RamcastMessage message, int ballotNumber, int sequenceNumber, int groupId, int groupIndex)
           throws IOException {
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.trace(
               "[{}] {} sending acks for timestamp [{}/{}] of group {} index {}",
               message.getId(),
               agent.getNode(),
@@ -454,8 +457,8 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     for (RamcastEndpoint endpoint : groupEndpointsMap.get(groupId)) {
       if (endpoint == null) continue;
       if (endpoint.getCompletionSignal() != -1 && endpoint.getCompletionSignal() != msgId) {
-        if (RamcastConfig.LOG_ENABLED)
-          logger.debug(
+        if (RamcastConfig.LOG_ENABLED && System.currentTimeMillis() % 100 == 0)
+          logger.trace(
                   "[{}] endpoint of group [{}] node {} is not ready for message {} Completion signal:{}",
                   endpoint.getEndpointId(),
                   groupId,
@@ -547,7 +550,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       RamcastCqProcessor<RamcastEndpoint> cqProcessor;
       int key = context.getCmd_fd();
       if (!cqMap.containsKey(key)) {
-        int cqSize = (config.getQueueLength() * 2) * 3 * RamcastGroup.getTotalNodeCount(); // added *2 at the end. TODO: check this
+        int cqSize = (config.getQueueLength() * 2) * 3 * RamcastGroup.getTotalNodeCount() * RamcastGroup.getTotalNodeCount(); // added *2 at the end. TODO: check this
         int wrSize = RamcastGroup.getTotalNodeCount() * RamcastGroup.getTotalNodeCount();
         cqProcessor =
                 new RamcastCqProcessor<>(
@@ -701,6 +704,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     // A node only connect to node with bigger ids.
     for (RamcastNode node : RamcastGroup.getAllNodes()) {
       if (node.getOrderId() >= agent.getNode().getOrderId()) {
+        Thread.sleep(50);
         if (RamcastConfig.LOG_ENABLED) logger.debug("connecting to: {}", node);
         RamcastEndpoint endpoint = createEndpoint();
         endpoint.connect(node.getInetAddress(), config.getTimeout());
@@ -758,12 +762,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     return incomingEndpoints;
   }
 
-  public AtomicInteger getClock() {
+  public AtomicVectorClock getClock() {
     return clock;
   }
 
   public void updateTsStatus(RamcastMessage message) {
     timestampBlock.setDelivered(message);
+    timestampBlock.freeTimestamp(message);
   }
 
   public static class RamcastEndpointFactory implements RdmaEndpointFactory<RamcastEndpoint> {

@@ -17,6 +17,7 @@ def get_username():
 
 
 DEAD_NODES = [2,7]
+EMULAB_DEAD_NODES=[4]
 
 ENV_CLUSTER = False
 ENV_EMULAB = False
@@ -39,7 +40,7 @@ def cluster_noderange(first, last):
 
 
 def emulab_noderange(first, last):
-    return ["node" + str(val) for val in [node for node in range(first, last + 1)]]
+    return ["node" + str(val) for val in [node for node in range(first, last + 1) if node not in EMULAB_DEAD_NODES]]
 
 
 if ENV_CLUSTER:
@@ -49,12 +50,13 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 32)
+    RDMA_NODES = emulab_noderange(1, 24)
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
     REMOTE_ENV = ""
-    RDMA_NODES = []
+    RDMA_NODES = emulab_noderange(1, 24)
+    PATH_GLOBAL_HOME = '/Users/longle/Documents/Workspace/PhD/ScalableSMR'
 
 ZK_NODES = ['192.168.3.9', '192.168.3.10', '192.168.3.11']
 ZK_HOST = '192.168.3.9:2181'
