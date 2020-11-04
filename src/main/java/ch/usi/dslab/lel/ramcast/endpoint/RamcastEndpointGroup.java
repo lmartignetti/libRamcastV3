@@ -217,13 +217,13 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
       return;
     }
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace(
+      logger.debug(
               "[{}] SERVER MEMORY after releasing memory: {}",
               endpoint.getEndpointId(),
               endpoint.getSharedCellBlock());
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace(
+      logger.debug(
               "[{}] Released memory of {} slot. Update client [{}].", message.getId(), freed, endpoint);
     this.writeRemoteHeadOnClient(endpoint, freed, message.getId());
     message.reset();

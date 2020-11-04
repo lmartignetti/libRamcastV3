@@ -21,32 +21,35 @@ public class AtomicVectorClock {
     return new AtomicVectorClock(clock >> 8 * 3, clock << 8 >> 8);
   }
 
-  public int get() {
+  public synchronized int get() {
     return (groupId << 8 * 3) | value.get();
   }
 
-  public int get(int v) {
+  public synchronized int get(int v) {
     return (groupId << 8 * 3) | v;
   }
 
-  public int getGroupId() {
+  public synchronized int getGroupId() {
     return groupId;
   }
 
-  public int getValue() {
+  public synchronized int getValue() {
     return value.get();
   }
 
-  public void setValue(int value) {
+  public synchronized void setValue(int value) {
     this.value.set(value);
   }
 
-  public int incrementAndGet() {
-//    int latest = this.latest.get();
-    int value = this.value.incrementAndGet();
-//    while (value <= latest) value = this.value.incrementAndGet();
-//    this.latest.set(value);
-    return this.get(value);
+  public synchronized int incrementAndGet() {
+    int latest = this.latest.get();
+    int v = this.value.incrementAndGet();
+    while (v <= latest) {
+      latest = this.latest.get();
+      v = this.value.incrementAndGet();
+    }
+    this.latest.set(v);
+    return this.get(v);
   }
 }
 

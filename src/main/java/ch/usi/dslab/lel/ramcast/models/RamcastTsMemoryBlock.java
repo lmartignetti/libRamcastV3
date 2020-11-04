@@ -207,7 +207,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
                       + getSlotOffset(message.getGroupSlot(groupIndex))
                       + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
       if (RamcastConfig.LOG_ENABLED)
-        logger.trace(
+        logger.debug(
                 "[{}] freeing memory at {} {} {}",
                 message.getId(),
                 position,

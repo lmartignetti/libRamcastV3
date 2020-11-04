@@ -155,10 +155,10 @@ public class MessageProcessor {
                                 this.processing.remove(message);
                                 if (RamcastConfig.LOG_ENABLED) {
                                   logger.debug("[{}] finalts={} is fulfilled. AFTER Remove from processing, put to order. order size={}", message.getId(), message.getFinalTs(), ordered.size());
-                                  if (ordered.size() > 0) {
-                                    for (RamcastMessage m : ordered)
-                                      logger.debug("[{}] Orderd timesgtamp ts: {}", m.getId(), m.getFinalTs());
-                                  }
+//                                  if (ordered.size() > 0) {
+//                                    for (RamcastMessage m : ordered)
+//                                      logger.debug("[{}] Orderd timesgtamp ts: {}", m.getId(), m.getFinalTs());
+//                                  }
                                 }
                               }
                               if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
@@ -216,7 +216,6 @@ public class MessageProcessor {
     if (agent.isLeader()) {
       if (RamcastConfig.LOG_ENABLED) logger.trace("[{}] Leader processing...", msgId);
       try {
-//        System.out.println(clock + " - " + msgId+" - "+ agent.getNode());
         group.writeTimestamp(message, group.getRound().get(), group.getClock().incrementAndGet());
       } catch (IOException e) {
         e.printStackTrace();

@@ -54,12 +54,7 @@ public class BenchAgent {
   private boolean isClient;
   private int destinationFrom;
   private int destinationCount;
-  private ByteBuffer _buffer;
-  private List<RamcastGroup> _dests;
   private long startTime;
-  private ByteBuffer responseBuffer;
-  private ByteBuffer sampleBuffer;
-  private int msgCount;
 
   private boolean isRunning = true;
 
@@ -67,22 +62,17 @@ public class BenchAgent {
           new MessageDeliveredCallback() {
             @Override
             public void call(Object data) {
-
               if (isClient && ((RamcastMessage) data).getMessage().getInt(0) == clientId) {
                 releasePermit();
                 long time = System.nanoTime();
                 long startTime = ((RamcastMessage) data).getMessage().getLong(4);
                 latMonitor.logLatency(startTime, time);
                 cdfMonitor.logLatencyForDistribution(startTime, time);
-                tpMonitor.incrementCount();
-                if (tpMonitor.getCount() % 20000 == 0)
-                  System.out.println(">>>>>> " + agent.getNode() + " == " + tpMonitor.getCount() + " == " + ((RamcastMessage) data).getId() + " == " + (time - startTime));
               }
             }
           };
 
   public static void main(String[] args) throws Exception {
-    //        Thread.sleep(5000);
     BenchAgent benchAgent = new BenchAgent();
     benchAgent.launch(args);
   }
@@ -208,14 +198,17 @@ public class BenchAgent {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
       RamcastMessage sampleMessage;
-      ByteBuffer sampleBuffer;
       int i = 0;
       int lastMsgId = -1;
-      //    sampleBuffer = sampleMessage.toBuffer();
 
       System.out.println("Client node " + this.agent.getNode() + " sending request to destination " + dest + " with payload size=" + payloadSize);
       while (isRunning) {
         getPermit();
+
+        tpMonitor.incrementCount();
+        if (tpMonitor.getCount() % 20000 == 0)
+          System.out.println(">>>>>> " + agent.getNode() + " == " + tpMonitor.getCount());
+
         if (RamcastConfig.DELAY)
           try {
             Thread.sleep(1000);

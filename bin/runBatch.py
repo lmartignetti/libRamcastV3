@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import common
-import sys
 
 # Latency when one client multicasts to all groups versus number of groups in configuration
 # NUM_GROUPS = NUM_DEST
@@ -12,12 +11,12 @@ import sys
 # NUM_CLIENT_PER_DESTINATION=1
 
 # if len(sys.argv) not in [6]:
-NUM_RUNS = 10
+NUM_RUNS = 1
 NUM_GROUPS = [1]
 NUM_GROUPS = [1]
 NUM_PROCESSES = 3
 NUM_DEST = [1]
-NUM_CLIENT_PER_DESTINATION = [1,2,3]
+NUM_CLIENT_PER_DESTINATION = [1]
 # else:
 #     NUM_RUNS = common.iarg(1)
 #     NUM_GROUPS = common.iarg(2)
