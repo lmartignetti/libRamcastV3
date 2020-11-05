@@ -20,7 +20,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast" level="error" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast" level="info" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
 

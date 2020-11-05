@@ -37,12 +37,10 @@ public class RamcastMessage {
   // groups: short[]: 2* groupCount
   // acks: short[]: 2* groupCount
 
-  private static final Logger logger = LoggerFactory.getLogger(RamcastMessage.class);
-
   public static final int POS_ID = 0;
   public static final int POS_MSG_LENGTH = RamcastConfig.SIZE_MSG_ID;
   public static final int POS_MSG = RamcastConfig.SIZE_MSG_ID + RamcastConfig.SIZE_MSG_LENGTH;
-
+  private static final Logger logger = LoggerFactory.getLogger(RamcastMessage.class);
   private static RamcastConfig config = RamcastConfig.getInstance();
   // the memory block where this message is located
   private RamcastMemoryBlock memoryBlock;
@@ -76,6 +74,8 @@ public class RamcastMessage {
 
   private int finalTs;
 
+  private ByteBuffer serializedBuffer;
+
   public RamcastMessage(ByteBuffer message, int[] groups) {
     this.message = message;
     this.message.clear();
@@ -102,16 +102,6 @@ public class RamcastMessage {
     this.address = memoryBlock.getTail();
   }
 
-  public int calculateBasedLength() {
-    return RamcastConfig.SIZE_MSG_ID
-            + RamcastConfig.SIZE_MSG_LENGTH
-            + this.messageLength
-            + RamcastConfig.SIZE_MSG_GROUP_COUNT
-            + this.getGroupCount() * RamcastConfig.SIZE_MSG_GROUP
-            + this.getGroupCount() * RamcastConfig.SIZE_MSG_SLOT
-            + RamcastConfig.SIZE_CHECKSUM;
-  }
-
   public static int calculateOverhead(int groupCount) {
     return RamcastConfig.SIZE_MSG_ID
             + RamcastConfig.SIZE_MSG_LENGTH
@@ -122,26 +112,37 @@ public class RamcastMessage {
             + 64; // TODO: find correct value for this
   }
 
+  public int calculateBasedLength() {
+    return RamcastConfig.SIZE_MSG_ID
+            + RamcastConfig.SIZE_MSG_LENGTH
+            + this.messageLength
+            + RamcastConfig.SIZE_MSG_GROUP_COUNT
+            + this.getGroupCount() * RamcastConfig.SIZE_MSG_GROUP
+            + this.getGroupCount() * RamcastConfig.SIZE_MSG_SLOT
+            + RamcastConfig.SIZE_CHECKSUM;
+  }
+
   public ByteBuffer toBuffer() {
-    ByteBuffer ret = ByteBuffer.allocateDirect(this.calculateBasedLength());
+    if (this.serializedBuffer == null) this.serializedBuffer = ByteBuffer.allocateDirect(this.calculateBasedLength());
+    this.serializedBuffer.clear();
     this.message.clear();
-    ret.putInt(this.id);
-    ret.putInt(this.messageLength);
-    ret.put(this.message);
-    ret.putShort(this.groupsCount);
+    this.serializedBuffer.putInt(this.id);
+    this.serializedBuffer.putInt(this.messageLength);
+    this.serializedBuffer.put(this.message);
+    this.serializedBuffer.putShort(this.groupsCount);
     for (short i = 0; i < this.groupsCount; i++) {
-      ret.putShort(this.groups[i]);
+      this.serializedBuffer.putShort(this.groups[i]);
     }
     for (int i = 0; i < this.groupsCount; i++) {
-      ret.putShort(this.slots[i]);
+      this.serializedBuffer.putShort(this.slots[i]);
     }
-    int pos = ret.position();
-    long crc = StringUtils.calculateCrc32((ByteBuffer) ret.position(0).limit(pos));
-    ret.clear();
+    int pos = this.serializedBuffer.position();
+    long crc = StringUtils.calculateCrc32((ByteBuffer) this.serializedBuffer.position(0).limit(pos));
+    this.serializedBuffer.clear();
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace("Current pos: {}, cap {}, crc {}", pos, ret.capacity(), crc);
-    ret.putLong(pos, crc);
-    return ret;
+      logger.trace("Current pos: {}, cap {}, crc {}", pos, this.serializedBuffer.capacity(), crc);
+    this.serializedBuffer.putLong(pos, crc);
+    return this.serializedBuffer;
   }
 
   public int getMessageLength() {
@@ -225,7 +226,7 @@ public class RamcastMessage {
       return this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
     } catch (Exception e) {
       e.printStackTrace();
-      logger.error("message {},bufferCap={} limit={},  getPosSlots()={}, getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index={}", this,this.buffer.capacity(),this.buffer.limit(), getPosSlots(), getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
+      logger.error("message {},bufferCap={} limit={},  getPosSlots()={}, getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index={}", this, this.buffer.capacity(), this.buffer.limit(), getPosSlots(), getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
       throw e;
     }
   }
@@ -344,16 +345,16 @@ public class RamcastMessage {
     return buffer.getLong(getPosCrc());
   }
 
-  public void setId(int id) {
-    this.id = id;
-  }
-
   public ByteBuffer getBuffer() {
     return buffer;
   }
 
   public void setSlots(short[] slots) {
     this.slots = slots;
+  }
+
+  public long getAddress() {
+    return address;
   }
 
   // return the slot # of this message on group with groupIndex
@@ -365,10 +366,6 @@ public class RamcastMessage {
   //    return slots[getGroupIndex(groupId)];
   //  }
 
-  public long getAddress() {
-    return address;
-  }
-
   public RamcastMemoryBlock getMemoryBlock() {
     return memoryBlock;
   }
@@ -378,6 +375,10 @@ public class RamcastMessage {
       this.id = ((ByteBuffer) this.buffer.clear()).getInt(POS_ID);
     }
     return id;
+  }
+
+  public void setId(int id) {
+    this.id = id;
   }
 
   public void reset() {

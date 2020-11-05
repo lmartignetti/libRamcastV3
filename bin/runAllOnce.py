@@ -31,6 +31,7 @@ PAYLOAD_SIZE = 96  # 196
 # ******
 # whitecast method: send to separate groups of server, then agreegate all results
 # OR 1 client only send to group of servers
+WHITE_CAST = True
 WHITE_CAST = False
 # ******
 
@@ -50,7 +51,7 @@ print "Use " + str(NUM_CLIENTS) + " clients"
 
 DELAY = False
 # RDMA config
-CONF_QUEUE_LENGTH = 2
+CONF_QUEUE_LENGTH = 32
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
@@ -208,11 +209,10 @@ time.sleep(1)
 
 if common.ENV_EMULAB:
     # need to sync this sysConfig with other instances
-    print "Syncing config file"
     os.system(
         "/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh /users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs " + str(
-            node_used))
-    time.sleep(5)
+            node_used + len(common.EMULAB_DEAD_NODES)))
+    time.sleep(3)
 
 run()
 

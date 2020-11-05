@@ -103,7 +103,7 @@ public class RamcastAgent {
     }
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.info(
               "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}, leader {}",
               this.node,
               this.getEndpointMap().keySet(),
@@ -137,19 +137,34 @@ public class RamcastAgent {
     }
   }
 
+  public void multicastSync(RamcastMessage message, List<RamcastGroup> destinations)
+          throws IOException {
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("Multicasting synced to dest {} message {}", destinations, message);
+    for (RamcastGroup group : destinations) {
+      this.endpointGroup.writeMessage(group, message.toBuffer());
+    }
+  }
+
+
+
   public RamcastMessage createMessage(
           int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
     int[] groups = new int[destinations.size()];
     destinations.forEach(group -> groups[destinations.indexOf(group)] = group.getId());
     RamcastMessage message = new RamcastMessage(buffer, groups);
     message.setId(msgId);
+    this.setSlot(message, destinations);
+    return message;
+  }
+
+  public void setSlot(RamcastMessage message, List<RamcastGroup> destinations) {
     short[] slots = getRemoteSlots(destinations);
     while (slots == null) {
       Thread.yield();
       slots = getRemoteSlots(destinations);
     }
     message.setSlots(slots);
-    return message;
   }
 
   public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {

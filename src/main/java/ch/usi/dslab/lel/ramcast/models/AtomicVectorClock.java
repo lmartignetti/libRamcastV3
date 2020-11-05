@@ -18,15 +18,15 @@ public class AtomicVectorClock {
   }
 
   public static AtomicVectorClock parse(int clock) {
-    return new AtomicVectorClock(clock >> 8 * 3, clock << 8 >> 8);
+    return new AtomicVectorClock(clock << 24 >> 24, clock >> 8 * 1);
   }
 
   public synchronized int get() {
-    return (groupId << 8 * 3) | value.get();
+    return (value.get() << 8 * 1) | groupId;
   }
 
   public synchronized int get(int v) {
-    return (groupId << 8 * 3) | v;
+    return (v << 8 * 1) | groupId;
   }
 
   public synchronized int getGroupId() {
@@ -38,17 +38,18 @@ public class AtomicVectorClock {
   }
 
   public synchronized void setValue(int value) {
-    this.value.set(value);
+    this.value.set(value >> 8 * 1);
   }
 
   public synchronized int incrementAndGet() {
-    int latest = this.latest.get();
+//    int latest = this.latest.get();
     int v = this.value.incrementAndGet();
-    while (v <= latest) {
-      latest = this.latest.get();
-      v = this.value.incrementAndGet();
-    }
-    this.latest.set(v);
+//    System.out.println("Group=" + groupId + " latest=" + latest + " value=" + value);
+//    while (v <= latest) {
+//      latest = this.latest.get();
+//      v = this.value.incrementAndGet();
+//    }
+//    this.latest.set(v);
     return this.get(v);
   }
 }

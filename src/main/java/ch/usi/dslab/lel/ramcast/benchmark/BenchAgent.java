@@ -45,6 +45,7 @@ public class BenchAgent {
   private static final Logger logger = LoggerFactory.getLogger(BenchAgent.class);
   Semaphore sendPermits;
   private ThroughputPassiveMonitor tpMonitor;
+  //  private ThroughputPassiveMonitor tpMonitorServer;
   private LatencyPassiveMonitor latMonitor;
   private LatencyDistributionPassiveMonitor cdfMonitor;
 
@@ -62,6 +63,8 @@ public class BenchAgent {
           new MessageDeliveredCallback() {
             @Override
             public void call(Object data) {
+//              tpMonitorServer.incrementCount();
+
               if (isClient && ((RamcastMessage) data).getMessage().getInt(0) == clientId) {
                 releasePermit();
                 long time = System.nanoTime();
@@ -144,9 +147,9 @@ public class BenchAgent {
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
 
+    DataGatherer.configure(experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
+//    this.tpMonitorServer = new ThroughputPassiveMonitor(this.clientId, "server_overall", true);
     if (isClient) {
-      DataGatherer.configure(
-              experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
       this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
       this.latMonitor = new LatencyPassiveMonitor(this.clientId, "client_overall", true);
       this.cdfMonitor = new LatencyDistributionPassiveMonitor(this.clientId, "client_overall", true);
@@ -182,7 +185,7 @@ public class BenchAgent {
   }
 
   private void startBenchmark() throws IOException, InterruptedException {
-    System.out.println("Node " + this.agent.getNode() + " start benchmarking");
+    logger.info("Node {} start benchmarking", this.agent.getNode());
 
     if (isClient) {
       sendPermits = new Semaphore(1);
@@ -197,17 +200,18 @@ public class BenchAgent {
       for (int i = 0; i < destinationCount; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
-      RamcastMessage sampleMessage;
+
+      RamcastMessage sampleMessage = this.agent.createMessage(0, buffer, dest);
       int i = 0;
       int lastMsgId = -1;
 
-      System.out.println("Client node " + this.agent.getNode() + " sending request to destination " + dest + " with payload size=" + payloadSize);
+      logger.info("Client node {} sending request to destination {} with payload size={}", this.agent.getNode(), dest, payloadSize);
       while (isRunning) {
         getPermit();
 
         tpMonitor.incrementCount();
-        if (tpMonitor.getCount() % 20000 == 0)
-          System.out.println(">>>>>> " + agent.getNode() + " == " + tpMonitor.getCount());
+        if (tpMonitor.getCount() % 50000 == 0)
+          logger.info("Total messages sent: {}", tpMonitor.getCount());
 
         if (RamcastConfig.DELAY)
           try {
@@ -216,8 +220,9 @@ public class BenchAgent {
             e.printStackTrace();
           }
         int id = Objects.hash(i, this.clientId);
-        //        sampleBuffer.putInt(0, i);
-        sampleMessage = this.agent.createMessage(id, buffer, dest);
+        sampleMessage.setId(id);
+        this.agent.setSlot(sampleMessage, dest);
+
         startTime = System.nanoTime();
         buffer.putLong(4, startTime);
         while (!agent.isAllDestReady(dest, lastMsgId)) {

@@ -29,6 +29,7 @@ WHITECAST_HOME = "/Users/longle/Documents/Workspace/PhD/RDMA/samples/atomic-mult
 TARGET_WHITECAST_HOME = '/users/lel/apps/atomic-multicast'
 
 TARGET_NODE = "apt{}.apt.emulab.net".format(HEAD_APT_NODE)
+TARGET_NODE = "hp{}.utah.cloudlab.us".format(HEAD_APT_NODE)
 TARGET_HOME = '/users/lel/apps/libramcast/'
 
 CMD_CREATE_DIR = ["ssh", TARGET_NODE, "'mkdir -p ", TARGET_HOME, "'"]
@@ -53,6 +54,5 @@ os.system(CMD_COPY_BUILD)
 
 CMD_SYNC = ["ssh -o StrictHostKeyChecking=no", TARGET_NODE, "/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh", TAIL_NODE]
 CMD_SYNC = ' '.join([str(val) for val in CMD_SYNC])
-
 
 os.system(CMD_SYNC)

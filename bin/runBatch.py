@@ -11,12 +11,15 @@ import common
 # NUM_CLIENT_PER_DESTINATION=1
 
 # if len(sys.argv) not in [6]:
-NUM_RUNS = 1
-NUM_GROUPS = [1]
-NUM_GROUPS = [1]
+NUM_RUNS = 5
+NUM_GROUPS = [1, 2]
+NUM_GROUPS = [2]
+NUM_GROUPS = [6]
 NUM_PROCESSES = 3
-NUM_DEST = [1]
+NUM_DEST = [2]
+NUM_DEST = [2, 4, 6]
 NUM_CLIENT_PER_DESTINATION = [1]
+NUM_CLIENT_PER_DESTINATION = [1, 2, 3]
 # else:
 #     NUM_RUNS = common.iarg(1)
 #     NUM_GROUPS = common.iarg(2)
@@ -24,7 +27,7 @@ NUM_CLIENT_PER_DESTINATION = [1]
 #     NUM_DEST = common.iarg(4)
 #     NUM_CLIENT_PER_DESTINATION = common.iarg(5)
 
-DURATION = 60
+DURATION = 120
 WARMUP = 20
 
 PROFILING = True

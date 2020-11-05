@@ -216,6 +216,9 @@ public class MessageProcessor {
     if (agent.isLeader()) {
       if (RamcastConfig.LOG_ENABLED) logger.trace("[{}] Leader processing...", msgId);
       try {
+//        int clock = group.getClock().incrementAndGet();
+//        System.out.println("Clock=" + clock + " msgId=" + msgId);
+//        group.writeTimestamp(message, group.getRound().get(), clock);
         group.writeTimestamp(message, group.getRound().get(), group.getClock().incrementAndGet());
       } catch (IOException e) {
         e.printStackTrace();
