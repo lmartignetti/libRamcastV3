@@ -28,6 +28,10 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
+    <logger name="ch.usi.dslab.bezerra.sense.DataGatherer" additivity="false" level="info">
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
     <root level="error">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>

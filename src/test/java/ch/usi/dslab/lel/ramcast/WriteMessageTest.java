@@ -125,7 +125,7 @@ public class WriteMessageTest {
   @DisplayName(
       "Should be able to write a message to remote side. Remote delivers/releases memory/updates back head pointer")
   public void testWriteMessage() throws IOException, InterruptedException {
-    buffer = ByteBuffer.allocateDirect(RamcastConfig.SIZE_PAYLOAD);
+    buffer = ByteBuffer.allocateDirect((RamcastConfig.SIZE_MESSAGE - RamcastConfig.SIZE_BUFFER_LENGTH));
     buffer.putInt(10);
     buffer.putInt(11);
     buffer.putInt(12);
@@ -201,7 +201,7 @@ public class WriteMessageTest {
     buffer.putInt(11);
     buffer.putInt(12);
     buffer.putChar('A');
-    ByteBuffer response = ByteBuffer.allocateDirect(RamcastConfig.SIZE_PAYLOAD);
+    ByteBuffer response = ByteBuffer.allocateDirect((RamcastConfig.SIZE_MESSAGE - RamcastConfig.SIZE_BUFFER_LENGTH));
     response.putInt(100);
     response.putInt(111);
     response.putInt(122);

@@ -16,7 +16,7 @@ def get_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
-DEAD_NODES = [1, 2, 7]
+DEAD_NODES = [2, 7]
 EMULAB_DEAD_NODES = []
 
 ENV_CLUSTER = False
@@ -50,12 +50,13 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 18)
+    RDMA_NODES = emulab_noderange(1, 15)
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
     REMOTE_ENV = ""
-    RDMA_NODES = emulab_noderange(1, 18)
+    PATH_PROFILING = ''
+    RDMA_NODES = cluster_noderange(1, 15)
     PATH_GLOBAL_HOME = '/Users/longle/Documents/Workspace/PhD/ScalableSMR'
 
 ZK_NODES = ['192.168.3.9', '192.168.3.10', '192.168.3.11']
@@ -196,3 +197,6 @@ def iarg(i):
 
 def farg(i):
     return float(sarg(i))
+
+
+CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"

@@ -144,6 +144,9 @@ public class RamcastAgent {
     for (RamcastGroup group : destinations) {
       this.endpointGroup.writeMessage(group, message.toBuffer());
     }
+    while (!isAllDestReadyForMessage(destinations, message.getId())) {
+      Thread.yield();
+    }
   }
 
 
@@ -255,9 +258,20 @@ public class RamcastAgent {
     return this.node.getNodeId();
   }
 
+  // this will wait until specific message is processed OR queue has space
   public boolean isAllDestReady(List<RamcastGroup> dests, int msgId) {
     for (RamcastGroup group : dests) {
       if (!endpointGroup.allEndpointReady(group.getId(), msgId)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // this will wait until specific message is processed
+  public boolean isAllDestReadyForMessage(List<RamcastGroup> dests, int msgId) {
+    for (RamcastGroup group : dests) {
+      if (!endpointGroup.allEndpointReadyForMessage(group.getId(), msgId)) {
         return false;
       }
     }

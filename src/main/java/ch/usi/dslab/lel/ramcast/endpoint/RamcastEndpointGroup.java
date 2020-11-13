@@ -82,7 +82,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
 //    this.sequenceNumber = new AtomicInteger(0);
 //    this.currentSequenceNumber = new AtomicInteger(0);
     this.incomingEndpoints = new ArrayList<>(0);
-    this.clock = new AtomicVectorClock(this.agent.getGroupId(), 0);
+    this.clock = new AtomicVectorClock(agent.getGroupId(), 0);
     //    this.endpointMemorySegmentMap = new ConcurrentHashMap<>();
   }
 
@@ -451,6 +451,24 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
             ballotNumber,
             Integer.TYPE,
             sequenceNumber);
+  }
+
+  public boolean allEndpointReadyForMessage(int groupId, int msgId) {
+    for (RamcastEndpoint endpoint : groupEndpointsMap.get(groupId)) {
+      if (endpoint == null) continue;
+      if (endpoint.getCompletionSignal() != msgId) {
+        if (RamcastConfig.LOG_ENABLED && System.currentTimeMillis() % 100 == 0)
+          logger.trace(
+                  "[{}] endpoint of group [{}] node {} is not ready for message {} Completion signal:{}",
+                  endpoint.getEndpointId(),
+                  groupId,
+                  endpoint.getNode(),
+                  msgId,
+                  endpoint.getCompletionSignal());
+        return false;
+      }
+    }
+    return true;
   }
 
   public boolean allEndpointReady(int groupId, int msgId) {

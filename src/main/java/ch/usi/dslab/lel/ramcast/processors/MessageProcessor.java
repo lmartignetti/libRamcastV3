@@ -62,7 +62,14 @@ public class MessageProcessor {
                               }
 
                               // set clock
-                              group.getClock().setValue(Math.max(tmpClock, group.getClock().get()));
+                              int clock = group.getClock().get();
+                              int newClock = Math.max(tmpClock, clock);
+                              while (!group.getClock().compareAndSet(clock, newClock)) {
+//                                System.out.println("Clock value changed!!!");
+                                clock = group.getClock().get();
+                                newClock = Math.max(tmpClock, clock);
+                              }
+
 
                               if (RamcastConfig.LOG_ENABLED)
                                 logger.debug(
@@ -150,15 +157,10 @@ public class MessageProcessor {
                             for (RamcastMessage message : processing) {
                               if (isFulfilled(message)) {
                                 message.setFinalTs(group.getTimestampBlock().getMaxTimestamp(message));
-//                                logger.debug("[{}] finalts={} is fulfilled. BEFORE Remove from processing, put to order. processing={}, order={}", message.getId(), message.getFinalTs(), processing, ordered);
                                 this.ordered.add(message);
                                 this.processing.remove(message);
                                 if (RamcastConfig.LOG_ENABLED) {
                                   logger.debug("[{}] finalts={} is fulfilled. AFTER Remove from processing, put to order. order size={}", message.getId(), message.getFinalTs(), ordered.size());
-//                                  if (ordered.size() > 0) {
-//                                    for (RamcastMessage m : ordered)
-//                                      logger.debug("[{}] Orderd timesgtamp ts: {}", m.getId(), m.getFinalTs());
-//                                  }
                                 }
                               }
                               if (minTs > message.getFinalTs()) minTs = message.getFinalTs();
@@ -216,9 +218,6 @@ public class MessageProcessor {
     if (agent.isLeader()) {
       if (RamcastConfig.LOG_ENABLED) logger.trace("[{}] Leader processing...", msgId);
       try {
-//        int clock = group.getClock().incrementAndGet();
-//        System.out.println("Clock=" + clock + " msgId=" + msgId);
-//        group.writeTimestamp(message, group.getRound().get(), clock);
         group.writeTimestamp(message, group.getRound().get(), group.getClock().incrementAndGet());
       } catch (IOException e) {
         e.printStackTrace();

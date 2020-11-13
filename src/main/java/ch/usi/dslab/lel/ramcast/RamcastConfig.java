@@ -22,13 +22,21 @@ public class RamcastConfig {
       -12; // handshake msg from server reply to to get write permission
 
   // total size of a message, includes payload and overhead
-  public static final int SIZE_MESSAGE = 256;
+//  public static final int SIZE_MESSAGE = 1024;
+  public static int SIZE_MESSAGE = 98;
+//  public static final int SIZE_MESSAGE = 10240;
+//  public static final int SIZE_MESSAGE = 5120;
+//  public static final int SIZE_MESSAGE = 16384; // 16kb
+//  public static final int SIZE_MESSAGE = 32768; // 32kb
+//  public static final int SIZE_MESSAGE = 65536; // 64kb
+//  public static final int SIZE_MESSAGE = 524288; // 512kb
+//  public static final int SIZE_MESSAGE = 1048576; // 1MB
   // a 64 bits value of the checksum
   public static final int SIZE_CHECKSUM = 8;
   // length of the length field of buffer that is being transmit
   public static final int SIZE_BUFFER_LENGTH = 4;
   // payload of a multicast message should not exceed this value
-  public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_BUFFER_LENGTH;
+//  public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_BUFFER_LENGTH;
   //  total size of timestamp, includes timestamp, ballot, value, status (delivered, pending)
   public static final int SIZE_TIMESTAMP = 10;
   // total size of remote-head value, include value, msgId

@@ -24,8 +24,8 @@ for nid in `seq 0 $NODE_COUNT`; do
     if [ $nid = $CONTROL_IP ]; then
         echo "Ignoring control nid: $nid"
     else
-        echo "Syncing to: node$nid"
-        rsync -e "ssh -o StrictHostKeyChecking=no" -rav --exclude-from=/users/lel/apps/libramcast/libRamcastV3/bin/emulab/.deployIgnore $DIR/* node$nid:$DIR/ &
+#        echo "Syncing to: node$nid"
+        rsync -q -e "ssh -o StrictHostKeyChecking=no" -rav --exclude-from=/users/lel/apps/libramcast/libRamcastV3/bin/emulab/.deployIgnore $DIR/* node$nid:$DIR/ &
     fi
-    echo "========================================"
+#    echo "========================================"
 done
