@@ -4,18 +4,15 @@ import ch.usi.dslab.lel.ramcast.RamcastAgent;
 import ch.usi.dslab.lel.ramcast.RamcastConfig;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpointGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
 import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
 import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
-import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Queue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class LeaderElectionProcessor {
@@ -46,13 +43,13 @@ public class LeaderElectionProcessor {
       if ((groupId == this.agent.getGroupId()
               && nodeId == this.agent.getNodeId())
               || (groupId != this.agent.getGroupId())
-              || (this.group.getBallotNumber().get() < ballotNumnber)) {
+              || (this.group.getRound().get() < ballotNumnber)) {
         if (RamcastConfig.LOG_ENABLED)
-          logger.debug("[HS] received ballot [{}] greater than current ballot [{}]. Granting permission.", ballotNumnber, this.group.getBallotNumber());
+          logger.debug("[HS] received ballot [{}] greater than current ballot [{}]. Granting permission.", ballotNumnber, this.group.getRound());
 
-        if (this.group.getBallotNumber().get() < ballotNumnber
+        if (this.group.getRound().get() < ballotNumnber
                 && groupId == this.agent.getGroupId()) {
-          this.group.setBallotNumber(ballotNumnber);
+          this.group.seRoundNumber(ballotNumnber);
         }
         // if request comes from same group => need to revoke permission of other nodes
         if (groupId == this.agent.getGroupId())
@@ -96,16 +93,17 @@ public class LeaderElectionProcessor {
       endpoint.setHasExchangedPermissionData(true);
     } else if (ticket == RamcastConfig.MSG_HS_S_GET_WRITE) { // msg step 1 sent from client
       endpoint.setRemoteSharedTimestampMemoryBlock(buffer.getLong(4), buffer.getInt(12), buffer.getInt(16));
-      acks.getAndIncrement();
+      int ack = acks.incrementAndGet();
       endpoint.setHasExchangedPermissionData(true);
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-                "[HS] Step Request Write permission CLIENT Receiving from {}: timestampBlock addr={} lkey={} capacity={} ack={}, pending={}, ordered={}",
+                "[HS] Step Request Write permission CLIENT Receiving {}/{} from {}: timestampBlock addr={} lkey={} capacity={} pending={}, ordered={}",
+                ack,
+                RamcastGroup.getTotalNodeCount(),
                 endpoint.getNode(),
                 buffer.getLong(4),
                 buffer.getInt(12),
                 buffer.getInt(16),
-                acks.get(),
                 buffer.getInt(20),
                 buffer.getInt(24)
         );
@@ -119,7 +117,6 @@ public class LeaderElectionProcessor {
 
   public void requestWritePermission(RamcastEndpoint endpoint, int ballotNumber)
           throws IOException {
-    this.acks.set(0);
     ByteBuffer buffer = ByteBuffer.allocateDirect(16);
     buffer.putInt(RamcastConfig.MSG_HS_C_GET_WRITE);
     buffer.putInt(this.agent.getGroupId());

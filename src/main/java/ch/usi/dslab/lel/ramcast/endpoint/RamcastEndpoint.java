@@ -21,14 +21,13 @@ public class RamcastEndpoint extends RdmaEndpoint {
   //  IbvMr remoteHeadMr;
   //  IbvMr sharedCircularMr;
   //  IbvMr sharedTimestampMr;
-
+  private final Object readTsSync = new Object();
   // shared memory cell (segment allocated for this endpoint) of the remote endpoint
   private RamcastMemoryBlock remoteCellBlock;
   // shared memory cell (segment allocated for this endpoint) at local
   private RamcastMemoryBlock sharedCellBlock;
   private RamcastConfig config = RamcastConfig.getInstance();
   private RamcastEndpointVerbCall verbCalls;
-
   // remote shared memory block (total) and timestamp of the remote endpoint
   // the actual memory buffer is created at group
   // the endpoints only store register data
@@ -38,7 +37,6 @@ public class RamcastEndpoint extends RdmaEndpoint {
   // .. and shared memory block for receiving timestamp from leaders, similar to above
   private RamcastMemoryBlock sharedTimestampBlock;
   private RamcastTsMemoryBlock remoteTimeStampBlock;
-
   // shared buffer for client to receive server's header position
   private RamcastMemoryBlock sharedServerHeadBlock; // this one is of client, wait to be writen
   // this one is stored on server as target to write
@@ -49,22 +47,17 @@ public class RamcastEndpoint extends RdmaEndpoint {
   private boolean hasExchangedClientData = false;
   private boolean hasExchangedServerData = false;
   private boolean hasExchangedPermissionData = false;
-
   // Memory manager for timestamp buffer, put it here to revoke later
   private IbvMr sharedTimestampMr;
-
   private int unsignaledWriteCount = 0;
   private int unsignaledUpdateCount = 0;
-
-  private final Object readTsSync = new Object();
-
   private ByteBuffer
-      remoteHeadBuffer; // shared buffer for client to receive server's header position. need to be
+          remoteHeadBuffer; // shared buffer for client to receive server's header position. need to be
   // here to not being clean
 
   protected RamcastEndpoint(
-      RdmaEndpointGroup<? extends RamcastEndpoint> group, RdmaCmId idPriv, boolean serverSide)
-      throws IOException {
+          RdmaEndpointGroup<? extends RamcastEndpoint> group, RdmaCmId idPriv, boolean serverSide)
+          throws IOException {
     super(group, idPriv, serverSide);
   }
 
@@ -78,22 +71,22 @@ public class RamcastEndpoint extends RdmaEndpoint {
     remoteHeadBuffer.putInt(4, -1);
     IbvMr remoteHeadMr = registerMemory(remoteHeadBuffer).execute().free().getMr();
     sharedServerHeadBlock =
-        new RamcastMemoryBlock(
-            remoteHeadMr.getAddr(),
-            remoteHeadMr.getLkey(),
-            remoteHeadMr.getLength(),
-            remoteHeadBuffer);
+            new RamcastMemoryBlock(
+                    remoteHeadMr.getAddr(),
+                    remoteHeadMr.getLkey(),
+                    remoteHeadMr.getLength(),
+                    remoteHeadBuffer);
 
     // register the shared buffer for receiving client message.
     // the buffer was created on group
     ByteBuffer sharedCircularBuffer = ((RamcastEndpointGroup) this.group).getSharedCircularBuffer();
     IbvMr sharedCircularMr = registerMemory(sharedCircularBuffer).execute().free().getMr();
     sharedCircularBlock =
-        new RamcastMemoryBlock(
-            sharedCircularMr.getAddr(),
-            sharedCircularMr.getLkey(),
-            sharedCircularMr.getLength(),
-            sharedCircularBuffer);
+            new RamcastMemoryBlock(
+                    sharedCircularMr.getAddr(),
+                    sharedCircularMr.getLkey(),
+                    sharedCircularMr.getLength(),
+                    sharedCircularBuffer);
 
     // extract to separated method
     //    registerTimestampWritePermission();
@@ -120,20 +113,20 @@ public class RamcastEndpoint extends RdmaEndpoint {
     if (this.sharedTimestampMr != null) this.sharedTimestampMr.deregMr().execute().free();
 
     ByteBuffer sharedTimestampBuffer =
-        ((RamcastEndpointGroup) this.group).getSharedTimestampBuffer();
+            ((RamcastEndpointGroup) this.group).getSharedTimestampBuffer();
     int access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
     sharedTimestampMr = getPd().regMr(sharedTimestampBuffer, access).execute().free().getMr();
     sharedTimestampBlock =
-        new RamcastMemoryBlock(
-            sharedTimestampMr.getAddr(),
-            sharedTimestampMr.getLkey(),
-            sharedTimestampMr.getLength(),
-            sharedTimestampBuffer);
+            new RamcastMemoryBlock(
+                    sharedTimestampMr.getAddr(),
+                    sharedTimestampMr.getLkey(),
+                    sharedTimestampMr.getLength(),
+                    sharedTimestampBuffer);
     if (RamcastConfig.LOG_ENABLED)
       logger.info(
-          "Shared timestamp block with READ permission for {}: {}",
-          this.node,
-          sharedTimestampBlock);
+              "Shared timestamp block with READ permission for {}: {}",
+              this.node,
+              sharedTimestampBlock);
     return sharedTimestampBlock;
   }
 
@@ -141,29 +134,29 @@ public class RamcastEndpoint extends RdmaEndpoint {
     // if the buffer has been register -> deregister it
     if (this.sharedTimestampMr != null) this.sharedTimestampMr.deregMr().execute().free();
     ByteBuffer sharedTimestampBuffer =
-        ((RamcastEndpointGroup) this.group).getSharedTimestampBuffer();
+            ((RamcastEndpointGroup) this.group).getSharedTimestampBuffer();
     // explicitly declare permission for this endpoint
     int access =
-        IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
+            IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
     sharedTimestampMr = getPd().regMr(sharedTimestampBuffer, access).execute().free().getMr();
     sharedTimestampBlock =
-        new RamcastMemoryBlock(
-            sharedTimestampMr.getAddr(),
-            sharedTimestampMr.getLkey(),
-            sharedTimestampMr.getLength(),
-            sharedTimestampBuffer);
+            new RamcastMemoryBlock(
+                    sharedTimestampMr.getAddr(),
+                    sharedTimestampMr.getLkey(),
+                    sharedTimestampMr.getLength(),
+                    sharedTimestampBuffer);
     if (RamcastConfig.LOG_ENABLED)
       logger.info(
-          "Shared timestamp block with READ/WRITE permission for {}: {}",
-          this.node,
-          sharedTimestampBlock);
+              "Shared timestamp block with READ/WRITE permission for {}: {}",
+              this.node,
+              sharedTimestampBlock);
     return sharedTimestampBlock;
   }
 
   public void dispatchCqEvent(IbvWC wc) throws IOException {
     if (wc.getStatus() == 5) {
       // flush
-            return;
+      return;
 //      throw new IOException("Faulty operation! wc.status " + wc.getStatus());
     } else if (wc.getStatus() == 10) { // permission error //IBV_WC_REM_ACCESS_ERR
       // happens when permission to write to this memory has been revoke
@@ -210,11 +203,11 @@ public class RamcastEndpoint extends RdmaEndpoint {
       ByteBuffer readBuffer = verbCalls.readTsBuf;
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/{}] deliver an event IBV_WC_RDMA_READ opcode {}, status {} ",
-            this.endpointId,
-            index,
-            wc.getOpcode(),
-            wc.getStatus());
+                "[{}/{}] deliver an event IBV_WC_RDMA_READ opcode {}, status {} ",
+                this.endpointId,
+                index,
+                wc.getOpcode(),
+                wc.getStatus());
       dispatchReadTs(readBuffer);
     } else {
       throw new IOException("Unkown opcode " + wc.getOpcode());
@@ -223,7 +216,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
 
   protected boolean _send(ByteBuffer buffer) throws IOException {
     if (RamcastConfig.LOG_ENABLED)
-      logger.trace("[{}/-1] perform SEND to {}", this.endpointId, this.node);
+      logger.debug("[{}/-1] perform SEND to {}", this.endpointId, this.node);
     SVCPostSend postSend = verbCalls.freeSendPostSend.poll();
     if (postSend != null) {
       buffer.clear();
@@ -233,13 +226,13 @@ public class RamcastEndpoint extends RdmaEndpoint {
       sendBuf.put(buffer);
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/{}] sendBuff -- capacity:{} / limit:{} / remaining: {} / first Int {}",
-            this.endpointId,
-            index,
-            sendBuf.capacity(),
-            sendBuf.limit(),
-            sendBuf.remaining(),
-            sendBuf.getInt(0));
+                "[{}/{}] sendBuff -- capacity:{} / limit:{} / remaining: {} / first Int {}",
+                this.endpointId,
+                index,
+                sendBuf.capacity(),
+                sendBuf.limit(),
+                sendBuf.remaining(),
+                sendBuf.getInt(0));
       postSend.getWrMod(0).getSgeMod(0).setLength(buffer.capacity());
       postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
       postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags());
@@ -285,14 +278,14 @@ public class RamcastEndpoint extends RdmaEndpoint {
       int index = (int) postSend.getWrMod(0).getWr_id();
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/{}] perform WRITE SIGNAL {} to {} at address {} lkey {} values {}",
-            this.endpointId,
-            index,
-            signaled ? "SIGNALED" : "UNSIGNALED",
-            this.node,
-            address,
-            lkey,
-            data);
+                "[{}/{}] perform WRITE SIGNAL {} to {} at address {} lkey {} values {}",
+                this.endpointId,
+                index,
+                signaled ? "SIGNALED" : "UNSIGNALED",
+                this.node,
+                address,
+                lkey,
+                data);
 
       ByteBuffer updateBuffer = verbCalls.updateBufs[index - verbCalls.updatePostIndexOffset];
       updateBuffer.clear();
@@ -302,7 +295,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
       }
       if (length > RamcastConfig.SIZE_SIGNAL) {
         throw new IOException(
-            "Buffer size of [" + length + "] is too big. Only allow " + RamcastConfig.SIZE_SIGNAL);
+                "Buffer size of [" + length + "] is too big. Only allow " + RamcastConfig.SIZE_SIGNAL);
       }
       postSend.getWrMod(0).getSgeMod(0).setLength(length);
       postSend.getWrMod(0).getRdmaMod().setRemote_addr(address);
@@ -328,21 +321,21 @@ public class RamcastEndpoint extends RdmaEndpoint {
 
   protected boolean _writeMessage(ByteBuffer buffer, boolean signaled) throws IOException {
     //    logger.trace("[{}/-1] perform WRITE on SHARED BUFFER of {}", this.endpointId, this.node);
-    if (buffer.capacity() > RamcastConfig.SIZE_PAYLOAD) {
+    if (buffer.capacity() > (RamcastConfig.SIZE_MESSAGE - RamcastConfig.SIZE_BUFFER_LENGTH)) {
       throw new IOException(
-          "Buffer size of ["
-              + buffer.capacity()
-              + "] is too big. Only allow "
-              + RamcastConfig.SIZE_PAYLOAD);
+              "Buffer size of ["
+                      + buffer.capacity()
+                      + "] is too big. Only allow "
+                      + (RamcastConfig.SIZE_MESSAGE - RamcastConfig.SIZE_BUFFER_LENGTH));
     }
 
     int availableSlots = this.getAvailableSlots();
     if (availableSlots <= 0) {
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/-1] Don't have available slot for writing message. {}",
-            this.endpointId,
-            availableSlots);
+                "[{}/-1] Don't have available slot for writing message. {}",
+                this.endpointId,
+                availableSlots);
       return false;
     }
     SVCPostSend postSend = verbCalls.freeWritePostSend.poll();
@@ -355,19 +348,19 @@ public class RamcastEndpoint extends RdmaEndpoint {
       writeBuf.put(buffer);
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}] [{}/{}] WRITE at position {} length {} buffer {}  write buffer capacity:{} / limit:{} / remaining: {} / first int {} /crc {}/ tail {}",
-            writeBuf.getInt(4),
-            this.endpointId,
-            index,
-            this.remoteCellBlock.getTailOffset(),
-            writeBuf.getInt(0),
-            buffer,
-            writeBuf.capacity(),
-            writeBuf.limit(),
-            writeBuf.remaining(),
-            writeBuf.getInt(4),
-            buffer.getLong(buffer.capacity() - RamcastConfig.SIZE_CHECKSUM),
-            this.remoteCellBlock.getTailOffset());
+                "[{}] [{}/{}] WRITE at position {} length {} buffer {}  write buffer capacity:{} / limit:{} / remaining: {} / first int {} /crc {}/ tail {}",
+                writeBuf.getInt(4),
+                this.endpointId,
+                index,
+                this.remoteCellBlock.getTailOffset(),
+                writeBuf.getInt(0),
+                buffer,
+                writeBuf.capacity(),
+                writeBuf.limit(),
+                writeBuf.remaining(),
+                writeBuf.getInt(4),
+                buffer.getLong(buffer.capacity() - RamcastConfig.SIZE_CHECKSUM),
+                this.remoteCellBlock.getTailOffset());
       postSend.getWrMod(0).getSgeMod(0).setLength(buffer.capacity() + 4);
       postSend.getWrMod(0).getSgeMod(0).setAddr(MemoryUtils.getAddress(writeBuf));
       postSend.getWrMod(0).getRdmaMod().setRemote_addr(this.remoteCellBlock.getTail());
@@ -376,11 +369,11 @@ public class RamcastEndpoint extends RdmaEndpoint {
       if (signaled) {
         if (RamcastConfig.LOG_ENABLED)
           logger.debug(
-              "[{}] [{}/{}] client Signaled remote write. Adding postSend to pending list. Remote mem {}",
-              writeBuf.getInt(4),
-              this.endpointId,
-              index,
-              this.remoteCellBlock);
+                  "[{}] [{}/{}] client Signaled remote write. Adding postSend to pending list. Remote mem {}",
+                  writeBuf.getInt(4),
+                  this.endpointId,
+                  index,
+                  this.remoteCellBlock);
         postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
         verbCalls.pendingWritePostSend.put(index, postSend);
       } else {
@@ -390,10 +383,10 @@ public class RamcastEndpoint extends RdmaEndpoint {
       if (!signaled) {
         if (RamcastConfig.LOG_ENABLED)
           logger.debug(
-              "[{}/{}] client Unsignaled remote write. Adding back postSend to available list. Remote mem {}",
-              this.endpointId,
-              index,
-              this.remoteCellBlock);
+                  "[{}/{}] client Unsignaled remote write. Adding back postSend to available list. Remote mem {}",
+                  this.endpointId,
+                  index,
+                  this.remoteCellBlock);
         verbCalls.freeWritePostSend.add(postSend);
         dispatchUnsignaledWriteCompletion(buffer);
       }
@@ -401,19 +394,19 @@ public class RamcastEndpoint extends RdmaEndpoint {
     } else {
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/-1] don't have available postsend to write message. Wait", this.endpointId);
+                "[{}/-1] don't have available postsend to write message. Wait", this.endpointId);
       return false;
     }
   }
 
   protected RamcastTsMemoryBlock readTimestampMemorySpace()
-      throws IOException, InterruptedException {
+          throws IOException, InterruptedException {
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-          "[{}/{}] client Perform remote READ size {}",
-          this.endpointId,
-          -1,
-          this.remoteTimeStampBlock.getCapacity());
+              "[{}/{}] client Perform remote READ size {}",
+              this.endpointId,
+              -1,
+              this.remoteTimeStampBlock.getCapacity());
     SVCPostSend postSend = verbCalls.readTsCall;
 
     int index = (int) postSend.getWrMod(0).getWr_id();
@@ -449,38 +442,38 @@ public class RamcastEndpoint extends RdmaEndpoint {
   private void dispatchWriteCompletion(ByteBuffer buffer) {
     if (RamcastConfig.LOG_ENABLED)
       logger.trace(
-          "dispatch WriteCompletion of buffer [{} {} {}]",
-          buffer.getInt(0),
-          buffer.getInt(4),
-          buffer.getInt(8));
+              "dispatch WriteCompletion of buffer [{} {} {}]",
+              buffer.getInt(0),
+              buffer.getInt(4),
+              buffer.getInt(8));
   }
 
   private void dispatchUnsignaledWriteCompletion(ByteBuffer buffer) {
     if (RamcastConfig.LOG_ENABLED)
       logger.trace(
-          "dispatch UnsignaledWriteCompletion of buffer [{} {} {}]",
-          buffer.getInt(0),
-          buffer.getInt(4),
-          buffer.getInt(8));
+              "dispatch UnsignaledWriteCompletion of buffer [{} {} {}]",
+              buffer.getInt(0),
+              buffer.getInt(4),
+              buffer.getInt(8));
   }
 
   private void dispatchSendCompletion(ByteBuffer buffer) {
     if (RamcastConfig.LOG_ENABLED)
       logger.trace(
-          "dispatch SendCompletion of buffer [{} {} {}]",
-          buffer.getInt(0),
-          buffer.getInt(4),
-          buffer.getInt(8));
+              "dispatch SendCompletion of buffer [{} {} {}]",
+              buffer.getInt(0),
+              buffer.getInt(4),
+              buffer.getInt(8));
     ((RamcastEndpointGroup) this.group).handleSendComplete(this, buffer);
   }
 
   private void dispatchReceive(ByteBuffer buffer) throws IOException {
     if (RamcastConfig.LOG_ENABLED)
       logger.trace(
-          "dispatch Receive of buffer [{} {} {}]",
-          buffer.getInt(0),
-          buffer.getInt(4),
-          buffer.getInt(8));
+              "dispatch Receive of buffer [{} {} {}]",
+              buffer.getInt(0),
+              buffer.getInt(4),
+              buffer.getInt(8));
     if (buffer.getInt(0) < 0) {
       ((RamcastEndpointGroup) this.group).handleProtocolMessage(this, buffer);
     } else {
@@ -491,10 +484,10 @@ public class RamcastEndpoint extends RdmaEndpoint {
   private void dispatchReadTs(ByteBuffer buffer) {
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-          "dispatch Read of buffer [{} {} {}]",
-          buffer.getInt(0),
-          buffer.getInt(4),
-          buffer.getInt(8));
+              "dispatch Read of buffer [{} {} {}]",
+              buffer.getInt(0),
+              buffer.getInt(4),
+              buffer.getInt(8));
     synchronized (verbCalls.readTsBuf) {
       verbCalls.readTsBuf.notify();
     }
@@ -507,11 +500,11 @@ public class RamcastEndpoint extends RdmaEndpoint {
       this.remoteCellBlock.moveHeadOffset(freed);
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}/] CLIENT do SET HEAD of {} to move {} positions, memory: {}",
-            this.endpointId,
-            this.node,
-            freed,
-            this.remoteCellBlock);
+                "[{}/] CLIENT do SET HEAD of {} to move {} positions, memory: {}",
+                this.endpointId,
+                this.node,
+                freed,
+                this.remoteCellBlock);
     }
     return this.remoteCellBlock.getRemainingSlots();
   }
@@ -554,9 +547,9 @@ public class RamcastEndpoint extends RdmaEndpoint {
   }
 
   public void setRemoteSharedTimestampMemoryBlock(
-      long remoteAddr, int remoteLKey, int remoteLength) {
+          long remoteAddr, int remoteLKey, int remoteLength) {
     this.remoteTimeStampBlock =
-        new RamcastTsMemoryBlock(this.node, remoteAddr, remoteLKey, remoteLength, null);
+            new RamcastTsMemoryBlock(this.node, remoteAddr, remoteLKey, remoteLength, null);
   }
 
   public RamcastMemoryBlock getRemoteServerHeadBlock() {
@@ -681,37 +674,37 @@ public class RamcastEndpoint extends RdmaEndpoint {
       if (checksum != crc) {
         if (RamcastConfig.LOG_ENABLED)
           logger.debug(
-              "Message is not completed. Length {} Calculated CRC {} vs Read CRC {}. Buffer [{} {} {}]",
-              msgLength,
-              checksum,
-              crc,
-              recvBuffer.getInt(start),
-              recvBuffer.getInt(start + 4),
-              recvBuffer.getInt(start + 8));
+                  "Message is not completed. Length {} Calculated CRC {} vs Read CRC {}. Buffer [{} {} {}]",
+                  msgLength,
+                  checksum,
+                  crc,
+                  recvBuffer.getInt(start),
+                  recvBuffer.getInt(start + 4),
+                  recvBuffer.getInt(start + 8));
         return;
       }
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
-            "[{}] dispatch local recvBuffer at position {}, Length {} CRC {}, buffer [{} {} {}], calculated CRC {}, memory {}",
-            this.endpointId,
-            this.sharedCellBlock.getTailOffset(),
-            msgLength,
-            crc,
-            recvBuffer.getInt(start),
-            recvBuffer.getInt(start + 4),
-            recvBuffer.getInt(start + 8),
-            checksum,
-            this.sharedCellBlock);
+                "[{}] dispatch local recvBuffer at position {}, Length {} CRC {}, buffer [{} {} {}], calculated CRC {}, memory {}",
+                this.endpointId,
+                this.sharedCellBlock.getTailOffset(),
+                msgLength,
+                crc,
+                recvBuffer.getInt(start),
+                recvBuffer.getInt(start + 4),
+                recvBuffer.getInt(start + 8),
+                checksum,
+                this.sharedCellBlock);
 
       RamcastMessage message =
-          new RamcastMessage(
-              ((ByteBuffer)
-                      recvBuffer
-                          .position(start + RamcastConfig.SIZE_BUFFER_LENGTH)
-                          .limit(start + RamcastConfig.SIZE_MESSAGE))
-                  .slice(),
-              this.node,
-              this.sharedCellBlock);
+              new RamcastMessage(
+                      ((ByteBuffer)
+                              recvBuffer
+                                      .position(start + RamcastConfig.SIZE_BUFFER_LENGTH)
+                                      .limit(start + RamcastConfig.SIZE_MESSAGE))
+                              .slice(),
+                      this.node,
+                      this.sharedCellBlock);
 
       // reset recvBuffer
       recvBuffer.clear();
@@ -720,9 +713,9 @@ public class RamcastEndpoint extends RdmaEndpoint {
       this.sharedCellBlock.advanceTail();
       if (RamcastConfig.LOG_ENABLED)
         logger.trace(
-            "[{}] SERVER MEMORY after polling: {}",
-            this.endpointId,
-            this.sharedCellBlock.toFullString());
+                "[{}] SERVER MEMORY after polling: {}",
+                this.endpointId,
+                this.sharedCellBlock.toFullString());
 
       this.dispatchRemoteWrite(message);
     } catch (Exception e) {

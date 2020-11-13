@@ -103,7 +103,7 @@ public class RamcastAgent {
     }
 
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug(
+      logger.info(
               "Agent of node {} is ready. EndpointMap: Key:{} Vlue {}, leader {}",
               this.node,
               this.getEndpointMap().keySet(),
@@ -131,11 +131,25 @@ public class RamcastAgent {
   public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
           throws IOException {
     if (RamcastConfig.LOG_ENABLED)
-      logger.debug("Multicasting to dest {} message {}", destinations, message);
+      logger.trace("Multicasting to dest {} message {}", destinations, message);
     for (RamcastGroup group : destinations) {
       this.endpointGroup.writeMessage(group, message.toBuffer());
     }
   }
+
+  public void multicastSync(RamcastMessage message, List<RamcastGroup> destinations)
+          throws IOException {
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace("Multicasting synced to dest {} message {}", destinations, message);
+    for (RamcastGroup group : destinations) {
+      this.endpointGroup.writeMessage(group, message.toBuffer());
+    }
+    while (!isAllDestReadyForMessage(destinations, message.getId())) {
+      Thread.yield();
+    }
+  }
+
+
 
   public RamcastMessage createMessage(
           int msgId, ByteBuffer buffer, List<RamcastGroup> destinations) {
@@ -143,13 +157,17 @@ public class RamcastAgent {
     destinations.forEach(group -> groups[destinations.indexOf(group)] = group.getId());
     RamcastMessage message = new RamcastMessage(buffer, groups);
     message.setId(msgId);
+    this.setSlot(message, destinations);
+    return message;
+  }
+
+  public void setSlot(RamcastMessage message, List<RamcastGroup> destinations) {
     short[] slots = getRemoteSlots(destinations);
     while (slots == null) {
       Thread.yield();
       slots = getRemoteSlots(destinations);
     }
     message.setSlots(slots);
-    return message;
   }
 
   public RamcastMessage createMessage(ByteBuffer buffer, List<RamcastGroup> destinations) {
@@ -207,14 +225,16 @@ public class RamcastAgent {
   }
 
   public void deliver(RamcastMessage message) throws IOException {
-    endpointGroup.updateTsStatus(message);
+//    endpointGroup.updateTsStatus(message);
+    endpointGroup.releaseTimestamp(message);
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-              "[{}] Delivered at ts {} !!! {}",
+              "[{}] Delivered at ts {} !!!",// {}, TS Memory {}",
               message.getId(),
-              message.getFinalTs(),
-              message);
-//              endpointGroup.getTimestampBlock());
+              message.getFinalTs()
+//              message,
+//              endpointGroup.getTimestampBlock()
+      );
     onDeliverCallback.call(message);
     // update FUO
 //     todo: enable this
@@ -238,10 +258,20 @@ public class RamcastAgent {
     return this.node.getNodeId();
   }
 
+  // this will wait until specific message is processed OR queue has space
   public boolean isAllDestReady(List<RamcastGroup> dests, int msgId) {
     for (RamcastGroup group : dests) {
       if (!endpointGroup.allEndpointReady(group.getId(), msgId)) {
-        if (RamcastConfig.LOG_ENABLED) logger.trace("Group {} is not ready", group.getId());
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // this will wait until specific message is processed
+  public boolean isAllDestReadyForMessage(List<RamcastGroup> dests, int msgId) {
+    for (RamcastGroup group : dests) {
+      if (!endpointGroup.allEndpointReadyForMessage(group.getId(), msgId)) {
         return false;
       }
     }

@@ -93,11 +93,11 @@ public class RamcastTsMemoryBlockTest {
     dests.add(RamcastGroup.getGroup(0));
 
     RamcastMessage message = agent00.createMessage(1, buffer, dests);
-    agent00.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1,1);
+    agent00.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1);
     logger.debug("Node 0 ts {}", agent00.getEndpointGroup().getTimestampBlock());
-    agent01.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1,1);
+    agent01.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1);
     logger.debug("Node 1 ts {}", agent00.getEndpointGroup().getTimestampBlock());
-    agent02.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1,1);
+    agent02.getEndpointGroup().getTimestampBlock().writeLocalTs(message,0,1,1);
     logger.debug("Node 2 ts {}", agent00.getEndpointGroup().getTimestampBlock());
 
     Thread.sleep(5000);
@@ -127,8 +127,8 @@ public class RamcastTsMemoryBlockTest {
 
       agent00.multicast(message, dests);
       Thread.sleep(100);
-      agent00.getEndpointGroup().writeTimestamp(message, 2 + i, 3 + i, 0);
-      agent10.getEndpointGroup().writeTimestamp(message, 4 + i, 5 + i, 0);
+      agent00.getEndpointGroup().writeTimestamp(message, 2 + i, 3 + i);
+      agent10.getEndpointGroup().writeTimestamp(message, 4 + i, 5 + i);
       Thread.sleep(100);
 
       logger.debug(

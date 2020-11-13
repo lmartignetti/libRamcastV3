@@ -16,7 +16,8 @@ def get_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
-DEAD_NODES = [2,7]
+DEAD_NODES = [2, 7]
+EMULAB_DEAD_NODES = []
 
 ENV_CLUSTER = False
 ENV_EMULAB = False
@@ -39,7 +40,7 @@ def cluster_noderange(first, last):
 
 
 def emulab_noderange(first, last):
-    return ["node" + str(val) for val in [node for node in range(first, last + 1)]]
+    return ["node" + str(val) for val in [node for node in range(first, last + 1) if node not in EMULAB_DEAD_NODES]]
 
 
 if ENV_CLUSTER:
@@ -49,12 +50,14 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 19)
+    RDMA_NODES = emulab_noderange(1, 15)
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
     REMOTE_ENV = ""
-    RDMA_NODES = []
+    PATH_PROFILING = ''
+    RDMA_NODES = cluster_noderange(1, 15)
+    PATH_GLOBAL_HOME = '/Users/longle/Documents/Workspace/PhD/ScalableSMR'
 
 ZK_NODES = ['192.168.3.9', '192.168.3.10', '192.168.3.11']
 ZK_HOST = '192.168.3.9:2181'
@@ -77,7 +80,8 @@ PATH_SENSE_CP = os.path.normpath(PATH_SENSE_HOME + '/target/classes')
 DEPENDENCIES_DIR = os.path.normpath(PATH_GLOBAL_HOME + '/dependencies/')
 DEPENDENCIES_JARS = ['logback-core-1.2.3.jar', 'logback-classic-1.2.3.jar', 'slf4j-api-1.7.21.jar',
                      'hamcrest-core-1.3.jar', 'junit-4.13-rc-2.jar', 'json-simple-1.1.jar', 'commons-cli-1.3.1.jar',
-                     'commons-math3-3.2.jar', 'javatuples-1.2.jar', 'kryo-serializers-0.42.jar', 'kryo-shaded-4.0.0.jar', 'objenesis-2.1.jar', 'minlog-1.3.0.jar']
+                     'commons-math3-3.2.jar', 'javatuples-1.2.jar', 'kryo-serializers-0.42.jar',
+                     'kryo-shaded-4.0.0.jar', 'objenesis-2.1.jar', 'minlog-1.3.0.jar']
 
 DEPENDENCIES = ':'.join([DEPENDENCIES_DIR + '/' + jar for jar in DEPENDENCIES_JARS])
 _class_path = [PATH_NETWRAPPER_CP, PATH_SENSE_CP, PATH_LIBDISNI_CP, PATH_LIBRAMCAST_CP, DEPENDENCIES]
@@ -193,3 +197,6 @@ def iarg(i):
 
 def farg(i):
     return float(sarg(i))
+
+
+CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"
