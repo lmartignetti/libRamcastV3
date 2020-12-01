@@ -8,17 +8,17 @@ from datetime import datetime
 
 import common
 
-NUM_RUNS = 5
+NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
-NUM_DEST = [2]
-NUM_CLIENT_PER_DESTINATION = [5, 6]
+NUM_DEST = [1]
+NUM_CLIENT_PER_DESTINATION = [14, 16, 18, 20, 22, 24, 26, 28, 30]
 
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
-PACKAGE_SIZE = [98, 1024]
+PACKAGE_SIZE = [98, 512, 1024, 2048, 4096, 5120, 6144, 7168, 8192, 16384, 32768, 65536]
 
-DURATION = 120
+DURATION = 60
 WARMUP = 20
 
 PROFILING = False

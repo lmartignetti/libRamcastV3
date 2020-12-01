@@ -50,7 +50,7 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 15)
+    RDMA_NODES = emulab_noderange(1, 25)
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
@@ -200,3 +200,5 @@ def farg(i):
 
 
 CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"
+CLASS_TCP_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.TCPBenchClient"
+CLASS_TCP_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.TCPBenchServer"
