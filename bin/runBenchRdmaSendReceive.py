@@ -48,14 +48,14 @@ def orchestra(package_size):
     log_dir = '{}/logs/tcp-bench/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, package_size,
                                                 datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
-    server_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_TCP_BENCH_SERVER,
+    server_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER,
                   "-s", package_size, "-sa", server_node, "-sp", BIND_PORT]
     cmdString = ' '.join([str(val) for val in server_cmd])
     common.sshcmdbg(server_node, cmdString)
 
     time.sleep(3)
 
-    client_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_TCP_BENCH_CLIENT,
+    client_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT,
                   "-s", package_size, "-sa", server_node, "-sp", BIND_PORT,
                   "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",
                   WARMUP * 1000]

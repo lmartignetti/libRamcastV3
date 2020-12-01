@@ -200,5 +200,7 @@ def farg(i):
 
 
 CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"
-CLASS_TCP_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.TCPBenchClient"
-CLASS_TCP_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.TCPBenchServer"
+CLASS_TCP_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.tcp.TCPBenchClient"
+CLASS_TCP_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.tcp.TCPBenchServer"
+CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.rdma.RdmaSendReceiveBenchClient"
+CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.rdma.RdmaSendReceiveBenchServer"
