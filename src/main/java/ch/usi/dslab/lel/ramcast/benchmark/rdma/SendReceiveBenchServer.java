@@ -15,22 +15,20 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-public class RdmaSendReceiveBenchServer implements RdmaEndpointFactory<RdmaSendReceiveBenchServer.SendRecvEndpoint> {
+public class SendReceiveBenchServer implements RdmaEndpointFactory<SendReceiveBenchServer.SendRecvEndpoint> {
   private RdmaPassiveEndpointGroup<SendRecvEndpoint> group;
   private String host;
   private int port;
   private int size;
-  private int loop;
   private int recvQueueSize;
 
-  public RdmaSendReceiveBenchServer(String host, int port, int size) throws IOException {
+  public SendReceiveBenchServer(String host, int port, int size) throws IOException {
     this.recvQueueSize = 1;
-    this.group = new RdmaPassiveEndpointGroup<RdmaSendReceiveBenchServer.SendRecvEndpoint>(1, this.recvQueueSize, 1, this.recvQueueSize * 2);
+    this.group = new RdmaPassiveEndpointGroup<>(1, this.recvQueueSize, 1, this.recvQueueSize * 2);
     this.group.init(this);
     this.host = host;
     this.port = port;
     this.size = size;
-    this.loop = 100000;
   }
 
   public static void main(String[] args) throws Exception {
@@ -43,24 +41,24 @@ public class RdmaSendReceiveBenchServer implements RdmaEndpointFactory<RdmaSendR
       System.exit(-1);
     }
 
-    RdmaSendReceiveBenchServer server = new RdmaSendReceiveBenchServer(options.getServerAddress(),
+    SendReceiveBenchServer server = new SendReceiveBenchServer(options.getServerAddress(),
             options.getServerPort(), options.getPayloadSize());
     server.run();
   }
 
-  public RdmaSendReceiveBenchServer.SendRecvEndpoint createEndpoint(RdmaCmId id, boolean serverSide)
+  public SendReceiveBenchServer.SendRecvEndpoint createEndpoint(RdmaCmId id, boolean serverSide)
           throws IOException {
     return new SendRecvEndpoint(group, id, serverSide, size, recvQueueSize);
   }
 
   private void run() throws Exception {
-    System.out.println("RdmaSendReceiveBenchServer, size " + size + ", loop " + loop + ", recvQueueSize " + recvQueueSize + ", port " + port);
+    System.out.println("RdmaSendReceiveBenchServer, size " + size);
 
-    RdmaServerEndpoint<RdmaSendReceiveBenchServer.SendRecvEndpoint> serverEndpoint = group.createServerEndpoint();
+    RdmaServerEndpoint<SendReceiveBenchServer.SendRecvEndpoint> serverEndpoint = group.createServerEndpoint();
     InetAddress ipAddress = InetAddress.getByName(host);
     InetSocketAddress address = new InetSocketAddress(ipAddress, port);
     serverEndpoint.bind(address, 10);
-    RdmaSendReceiveBenchServer.SendRecvEndpoint endpoint = serverEndpoint.accept();
+    SendReceiveBenchServer.SendRecvEndpoint endpoint = serverEndpoint.accept();
     System.out.println("RdmaSendReceiveBenchServer, client connected, address " + address.toString());
 
     int opCount = 0;

@@ -5,6 +5,10 @@ from datetime import datetime
 
 import common
 
+PROTOCOL = 'RDMA-READ'
+PROTOCOL = 'RDMA-SEND-RECEIVE'
+PROTOCOL = 'TCP'
+
 NUM_RUNS = 1
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [96]
@@ -18,6 +22,24 @@ DELAY = False
 DEBUG = False
 
 BIND_PORT = 5000
+
+print "running benchmark for ", PROTOCOL
+
+if PROTOCOL is 'RDMA-SEND-RECEIVE':
+    CLASS_BENCH_SERVER = common.CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER
+    CLASS_BENCH_CLIENT = common.CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT
+    protocol_log_dir = 'rdma-send-receive-bench'
+elif PROTOCOL is 'RDMA-READ':
+    CLASS_BENCH_SERVER = common.CLASS_RDMA_READ_BENCH_SERVER
+    CLASS_BENCH_CLIENT = common.CLASS_RDMA_READ_BENCH_CLIENT
+    protocol_log_dir = 'rdma-send-receive-bench'
+elif PROTOCOL is 'TCP':
+    CLASS_BENCH_SERVER = common.CLASS_TCP_BENCH_SERVER
+    CLASS_BENCH_CLIENT = common.CLASS_TCP_BENCH_CLIENT
+    protocol_log_dir = 'tcp-bench'
+else:
+    print "Protocol is not defined"
+    exit(-1)
 
 
 def run():
@@ -45,17 +67,17 @@ def orchestra(package_size):
     server_node = common.RDMA_NODES[2]
 
     debug_log_dir = '{}/bin'.format(common.PATH_LIBRAMCAST_HOME)
-    log_dir = '{}/logs/tcp-bench/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, package_size,
-                                                datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
+    log_dir = '{}/logs/{}/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, package_size, protocol_log_dir,
+                                         datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
-    server_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER,
+    server_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, CLASS_BENCH_SERVER,
                   "-s", package_size, "-sa", server_node, "-sp", BIND_PORT]
     cmdString = ' '.join([str(val) for val in server_cmd])
+    print cmdString
     common.sshcmdbg(server_node, cmdString)
-
     time.sleep(3)
 
-    client_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, common.CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT,
+    client_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, CLASS_BENCH_CLIENT,
                   "-s", package_size, "-sa", server_node, "-sp", BIND_PORT,
                   "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",
                   WARMUP * 1000]

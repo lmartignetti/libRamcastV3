@@ -18,12 +18,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
-public class RdmaSendReceiveBenchClient implements RdmaEndpointFactory<RdmaSendReceiveBenchClient.SendRecvEndpoint> {
+public class SendReceiveBenchClient implements RdmaEndpointFactory<SendReceiveBenchClient.SendRecvEndpoint> {
   private RdmaPassiveEndpointGroup<SendRecvEndpoint> group;
   private String host;
   private int port;
   private int size;
-  private int loop;
   private int recvQueueSize;
 
   private ThroughputPassiveMonitor tpMonitor;
@@ -31,14 +30,13 @@ public class RdmaSendReceiveBenchClient implements RdmaEndpointFactory<RdmaSendR
   private LatencyDistributionPassiveMonitor cdfMonitor;
 
 
-  public RdmaSendReceiveBenchClient(String host, int port, int size) throws IOException {
+  public SendReceiveBenchClient(String host, int port, int size) throws IOException {
     this.recvQueueSize = 1;
-    this.group = new RdmaPassiveEndpointGroup<RdmaSendReceiveBenchClient.SendRecvEndpoint>(1, recvQueueSize, 1, recvQueueSize * 2);
+    this.group = new RdmaPassiveEndpointGroup<>(1, recvQueueSize, 1, recvQueueSize * 2);
     this.group.init(this);
     this.host = host;
     this.port = port;
     this.size = size;
-    this.loop = 100000;
 
     tpMonitor = new ThroughputPassiveMonitor(1, "client_overall", true);
     latMonitor = new LatencyPassiveMonitor(1, "client_overall", true);
@@ -56,12 +54,12 @@ public class RdmaSendReceiveBenchClient implements RdmaEndpointFactory<RdmaSendR
     }
     DataGatherer.configure(options.getExperimentDuration(), options.getFileDirectory(), options.getGathererHost(), options.getGathererPort(), options.getWarmUpTime());
 
-    RdmaSendReceiveBenchClient server = new RdmaSendReceiveBenchClient(options.getServerAddress(),
+    SendReceiveBenchClient server = new SendReceiveBenchClient(options.getServerAddress(),
             options.getServerPort(), options.getPayloadSize());
     server.run();
   }
 
-  public RdmaSendReceiveBenchClient.SendRecvEndpoint createEndpoint(RdmaCmId id, boolean serverSide)
+  public SendReceiveBenchClient.SendRecvEndpoint createEndpoint(RdmaCmId id, boolean serverSide)
           throws IOException {
     return new SendRecvEndpoint(group, id, serverSide, size, recvQueueSize);
   }
@@ -69,7 +67,7 @@ public class RdmaSendReceiveBenchClient implements RdmaEndpointFactory<RdmaSendR
   private void run() throws Exception {
     System.out.println("RdmaSendReceiveBenchClient, size " + size);
 
-    RdmaSendReceiveBenchClient.SendRecvEndpoint endpoint = group.createEndpoint();
+    SendReceiveBenchClient.SendRecvEndpoint endpoint = group.createEndpoint();
     InetAddress ipAddress = InetAddress.getByName(host);
     InetSocketAddress address = new InetSocketAddress(ipAddress, port);
     endpoint.connect(address, 1000);
