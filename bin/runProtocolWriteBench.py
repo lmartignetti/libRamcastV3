@@ -11,12 +11,12 @@ import common
 NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
-NUM_PROCESSES = 3
+NUM_PROCESSES = 2
 NUM_DEST = [1]
-NUM_CLIENT_PER_DESTINATION = [14, 16, 18, 20, 22, 24, 26, 28, 30]
+NUM_CLIENT_PER_DESTINATION = [1]
 
-PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
-PACKAGE_SIZE = [98, 512, 1024, 2048, 4096, 5120, 6144, 7168, 8192, 16384, 32768, 65536]
+PACKAGE_SIZE = [64, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+PACKAGE_SIZE = [512]
 
 DURATION = 60
 WARMUP = 20
@@ -26,13 +26,13 @@ DEBUG = False
 DELAY = False
 
 # RDMA config
-CONF_QUEUE_LENGTH = 8
+CONF_QUEUE_LENGTH = 64
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
-CONF_MAX_INLINE = 64
+CONF_MAX_INLINE = 250
 CONF_PORT = 9000
-CONF_SIGNAL_INTERVAL = 4
+CONF_SIGNAL_INTERVAL = 64
 
 if PROFILING: DURATION = 9999
 
@@ -105,6 +105,7 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
     i = 0
     client_per_node_used = 0
     last_node = None
+
     while j < remaining_clients:
         config["group_members"].append({
             "gid": g,
@@ -126,7 +127,7 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
 
     # fill up the last group. these process is just for filling group, not participate in anything
     if last_node is None: last_node = client_nodes[i]
-    while p < num_process_per_group:
+    while p < num_process_per_group and p != 0:
         last_client_per_node_used += 1
         config["group_members"].append({
             "gid": g,
@@ -145,13 +146,8 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
 
 def orchestra(num_destinations, num_clients, num_process_per_group, package_size):
     debug_log_dir = '{}/bin'.format(common.PATH_LIBRAMCAST_HOME)
-    log_dir = '{}/logs/max-single-dest-1248-group/{}d-{}c-{}p-{}b-{}'.format(common.PATH_LIBRAMCAST_HOME,
-                                                                             num_destinations,
-                                                                             num_clients,
-                                                                             num_process_per_group,
-                                                                             package_size,
-                                                                             datetime.now().strftime(
-                                                                                 '%Y-%m-%d-%H-%M-%S'))
+    log_dir = '{}/logs/rdma-write/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, package_size,
+                                                 datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
     config_file = '{}/bin/systemConfigs/generatedSystemConfig{}g{}p.json'.format(common.PATH_LIBRAMCAST_HOME,
                                                                                  num_destinations,
                                                                                  num_process_per_group)
@@ -175,7 +171,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     clients_used = 0
     clients_per_group_used = 1
     while i < len(available_nodes):
-        cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, '-DGROUPID=' + str(g), '-DNODEID=' + str(p), common.CLASS_BENCH,
+        cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, '-DGROUPID=' + str(g), '-DNODEID=' + str(p),
+               common.CLASS_RDMA_WRITE_BENCH_AGENT,
                "-c", config_file, "-s", package_size,
                "-gid", g, "-nid", p, "-cid", i,
                "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",

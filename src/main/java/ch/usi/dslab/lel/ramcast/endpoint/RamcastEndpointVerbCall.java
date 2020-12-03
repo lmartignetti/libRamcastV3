@@ -298,11 +298,10 @@ public class RamcastEndpointVerbCall {
   }
 
   public void freeUpdate(int index) throws IOException {
-    //    while (pendingUpdatePostSend.size() > 0) {
-    //      int i = pendingUpdatePostSend.keySet().iterator().next();
     SVCPostSend sendOperation = pendingUpdatePostSend.remove(index);
     if (sendOperation == null) {
-      throw new IOException(this.endpoint.getNode() + " no pending index " + index);
+      return;
+//      throw new IOException(this.endpoint.getNode() + " no pending index " + index);
     }
     if (RamcastConfig.LOG_ENABLED)
       logger.trace("[{}/{}] adding back update postsend", this.endpoint.getEndpointId(), index);

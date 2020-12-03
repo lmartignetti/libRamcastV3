@@ -28,8 +28,8 @@ GLOBAL_HOME = os.path.normpath(script_dir() + '/../../../')
 WHITECAST_HOME = "/Users/longle/Documents/Workspace/PhD/RDMA/samples/atomic-multicast"
 TARGET_WHITECAST_HOME = '/users/lel/apps/atomic-multicast'
 
-TARGET_NODE = "apt{}.apt.emulab.net".format(HEAD_APT_NODE)
 TARGET_NODE = "hp{}.utah.cloudlab.us".format(HEAD_APT_NODE)
+TARGET_NODE = "apt{}.apt.emulab.net".format(HEAD_APT_NODE)
 TARGET_HOME = '/users/lel/apps/libramcast/'
 
 CMD_CREATE_DIR = ["ssh", TARGET_NODE, "'mkdir -p ", TARGET_HOME, "'"]

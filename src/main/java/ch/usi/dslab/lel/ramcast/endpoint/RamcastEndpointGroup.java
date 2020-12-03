@@ -107,6 +107,20 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     this.nodeEndpointMap.get(node).writeMessage(buffer);
   }
 
+  // FOR TESTING ONLY
+  public void writeTestMessage(RamcastGroup group, ByteBuffer buffer) throws IOException {
+    if (RamcastConfig.LOG_ENABLED)
+      logger.trace(
+              "Write message to {}, buffer {}, ep {}",
+              group,
+              buffer,
+              this.groupEndpointsMap.get(group.getId()));
+    for (RamcastEndpoint endpoint : this.getGroupEndpointsMap().get(group.getId())) {
+      if (endpoint.getNode().getNodeId() == 0)
+        endpoint.writeMessage(buffer);
+    }
+  }
+
   public void writeMessage(RamcastGroup group, ByteBuffer buffer) throws IOException {
     if (RamcastConfig.LOG_ENABLED)
       logger.trace(
@@ -182,7 +196,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                     () -> {
                       MDC.setContextMap(contextMap);
                       if (RamcastConfig.LOG_ENABLED) logger.info("Polling for incoming data");
-                      while (true) {
+                      while (!Thread.interrupted()) {
                         for (int i = 0; i < incomingEndpoints.size(); i++) {
                           if (incomingEndpoints.get(i) != null) {
                             incomingEndpoints.get(i).pollForData();
@@ -462,6 +476,26 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
                   "[{}] endpoint of group [{}] node {} is not ready for message {} Completion signal:{}",
                   endpoint.getEndpointId(),
                   groupId,
+                  endpoint.getNode(),
+                  msgId,
+                  endpoint.getCompletionSignal());
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // FOR TESTING ONLY
+  public boolean endpointReadyForTestMessage(int msgId) {
+    for (RamcastEndpoint endpoint : groupEndpointsMap.get(0)) {
+      if (endpoint == null) continue;
+      if (endpoint.getNode().getNodeId() != 0) continue;
+      if (endpoint.getCompletionSignal() != msgId) {
+        if (RamcastConfig.LOG_ENABLED && System.currentTimeMillis() % 1000 == 0)
+          logger.debug(
+                  "[{}] endpoint of group [{}] node {} is not ready for message {} Completion signal:{}",
+                  endpoint.getEndpointId(),
+                  0,
                   endpoint.getNode(),
                   msgId,
                   endpoint.getCompletionSignal());

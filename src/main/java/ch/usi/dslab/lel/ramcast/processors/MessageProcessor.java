@@ -50,7 +50,7 @@ public class MessageProcessor {
                     () -> {
                       try {
                         MDC.put("ROLE", agent.getGroupId() + "/" + agent.getNode().getNodeId());
-                        while (true) {
+                        while (!Thread.interrupted()) {
                           if (!isRunning) Thread.yield();
                           if (pendingTimestamps.size() > 0)
                             for (PendingTimestamp pending : pendingTimestamps) {
@@ -212,6 +212,16 @@ public class MessageProcessor {
 
   public void handleMessage(RamcastMessage message) {
     int msgId = message.getId();
+
+    // hack: checking if there is two process and 1 group => write bench => deliver now
+    if (RamcastConfig.getInstance().getNodePerGroup() == 2 && RamcastConfig.getInstance().getGroupCount() == 1)
+      try {
+        this.agent.deliverWrite(message);
+        return;
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+
     if (RamcastConfig.LOG_ENABLED)
       logger.debug("[{}] Receiving new message", msgId);
     if (RamcastConfig.LOG_ENABLED) logger.trace("[Recv][Step #1][msgId={}]", msgId);

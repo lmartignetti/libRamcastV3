@@ -49,12 +49,13 @@ public class TCPBenchClient {
     while (!Thread.interrupted()) {
       sent = System.nanoTime();
       serverConnection.sendBusyWait(message);
+      serverConnection.receiveBusyWait();
       now = System.nanoTime();
       tpMonitor.incrementCount();
       latMonitor.logLatency(sent, now);
       cdfMonitor.logLatencyForDistribution(sent, now);
       if (tpMonitor.getCount() % 50000 == 0)
-        System.out.println("Total messages sent: " + tpMonitor.getCount());
+        System.out.println("Total TCP messages sent: " + tpMonitor.getCount());
     }
   }
 }

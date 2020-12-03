@@ -70,21 +70,6 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
       );
     this.getBuffer().putInt(position, round);
     this.getBuffer().putInt(position + 4, clock);
-//    if (RamcastConfig.LOG_ENABLED)
-//      logger.debug(
-//              "[{}] After writing to slot {} index {} ballot {} sequence {} clock {} position {}: [{}/{}/{}] {}",
-//              message.getId(),
-//              message.getGroupSlot(groupIndex),
-//              groupIndex,
-//              ballotNumber,
-//              sequenceNumber,
-//              localClock,
-//              position,
-//              this.getBuffer().getInt(position),
-//              this.getBuffer().getInt(position + 4),
-//              this.getBuffer().getInt(position + 8),
-//              this.toString()
-//      );
   }
 
   //  // FUO is the last 4 bytes of the buffer

@@ -3,6 +3,7 @@ package ch.usi.dslab.lel.ramcast;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint;
 import ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpointGroup;
 import ch.usi.dslab.lel.ramcast.models.RamcastGroup;
+import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
 import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
 import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import com.ibm.disni.RdmaServerEndpoint;
@@ -55,7 +56,7 @@ public class RamcastAgent {
             new Thread(
                     () -> {
                       MDC.put("ROLE", node.getGroupId() + "/" + node.getNodeId());
-                      while (true) {
+                      while (!Thread.interrupted()) {
                         try {
                           RamcastEndpoint endpoint = this.serverEp.accept();
                           while (!endpoint.isReady()) Thread.sleep(10);
@@ -75,7 +76,7 @@ public class RamcastAgent {
   public void establishConnections() throws Exception {
 
     this.endpointGroup.connect();
-    while (true) {
+    while (!Thread.interrupted()) {
       Thread.sleep(10);
       // todo: find nicer way for -1
       if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
@@ -91,7 +92,7 @@ public class RamcastAgent {
 
     this.endpointGroup.startPollingData();
 
-    while (true) {
+    while (!Thread.interrupted()) {
       Thread.sleep(10);
       // todo: find nicer way for -1
       if (this.getEndpointMap().keySet().size() != RamcastGroup.getTotalNodeCount()) continue;
@@ -128,6 +129,17 @@ public class RamcastAgent {
     return "RamcastAgent{" + "node=" + node + '}';
   }
 
+  // FOR TESTING ONLY
+  public void writeSync(RamcastMessage message, List<RamcastGroup> destinations)
+          throws IOException {
+    for (RamcastGroup group : destinations) {
+      this.endpointGroup.writeTestMessage(group, message.toBuffer());
+    }
+    while (!isDestReadyForTestMessage(message.getId())) {
+      Thread.yield();
+    }
+  }
+
   public void multicast(RamcastMessage message, List<RamcastGroup> destinations)
           throws IOException {
     if (RamcastConfig.LOG_ENABLED)
@@ -148,7 +160,6 @@ public class RamcastAgent {
       Thread.yield();
     }
   }
-
 
 
   public RamcastMessage createMessage(
@@ -225,25 +236,15 @@ public class RamcastAgent {
   }
 
   public void deliver(RamcastMessage message) throws IOException {
-//    endpointGroup.updateTsStatus(message);
     endpointGroup.releaseTimestamp(message);
     if (RamcastConfig.LOG_ENABLED)
       logger.debug(
-              "[{}] Delivered at ts {} !!!",// {}, TS Memory {}",
+              "[{}] Delivered at ts {} !!!",
               message.getId(),
               message.getFinalTs()
-//              message,
-//              endpointGroup.getTimestampBlock()
       );
     onDeliverCallback.call(message);
-    // update FUO
-//     todo: enable this
-
     this.endpointGroup.releaseMemory(message);
-//    if (lastDelivered != null) {
-//      this.endpointGroup.releaseMemory(lastDelivered);
-//    }
-//    lastDelivered = message;
   }
 
   public boolean hasClientRole() {
@@ -276,5 +277,46 @@ public class RamcastAgent {
       }
     }
     return true;
+  }
+
+  // this will wait until specific message is processed
+  // FOR TESTING ONLY
+  public boolean isDestReadyForTestMessage(int msgId) {
+    if (!endpointGroup.endpointReadyForTestMessage(msgId)) {
+      return false;
+    }
+    return true;
+  }
+
+  // FOR TESTING ONLY
+  public void deliverWrite(RamcastMessage message) throws IOException {
+    endpointGroup.releaseTimestamp(message);
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug(
+              "[{}] Delivered at ts {} !!!",
+              message.getId(),
+              message.getFinalTs()
+      );
+    onDeliverCallback.call(message);
+
+    // write back to the client
+    RamcastMemoryBlock memoryBlock = message.getMemoryBlock();
+    int freed = memoryBlock.freeSlot(message.getGroupSlot(message.getGroupIndex(this.getGroupId())));
+    RamcastEndpoint endpoint = message.getMemoryBlock().getEndpoint();
+
+    if (freed == 0) {
+      return;
+    }
+    RamcastMemoryBlock clientBlock = endpoint.getRemoteServerHeadBlock();
+    ByteBuffer buffer = message.getBuffer();
+    if (RamcastConfig.LOG_ENABLED)
+      logger.debug("[{}] Reply buffer size {} !!!", message.getId(), buffer.capacity());
+    buffer.putInt(0, freed);
+    buffer.putInt(4, message.getId());
+    endpoint.writeTestResponse(
+            clientBlock.getAddress(),
+            clientBlock.getLkey(),
+            buffer);
+    message.reset();
   }
 }

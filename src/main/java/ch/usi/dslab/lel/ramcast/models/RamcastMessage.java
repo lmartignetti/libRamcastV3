@@ -185,9 +185,7 @@ public class RamcastMessage {
 
   public ByteBuffer getMessage() {
     if (this.message == null) {
-      this.message =
-              ((ByteBuffer) this.buffer.position(POS_MSG).limit(POS_MSG + this.getMessageLength()))
-                      .slice();
+      this.message = ((ByteBuffer) this.buffer.position(POS_MSG).limit(POS_MSG + this.getMessageLength())).slice();
       this.message.clear();
       this.buffer.clear();
     }
@@ -254,12 +252,6 @@ public class RamcastMessage {
     if (this.groupsAcksBallots[groupIndex][nodeIndex] <= 0) {
       int index = groupIndex * config.getNodePerGroup() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
-//      logger.debug(
-//          "Getting ack ballots of group index {} node index {} at calculated index {} pos {}",
-//          groupIndex,
-//          nodeIndex,
-//          index,
-//          pos);
       try {
         this.groupsAcksBallots[groupIndex][nodeIndex] = this.buffer.getInt(pos);
       } catch (Exception e) {
@@ -280,12 +272,6 @@ public class RamcastMessage {
     if (this.groupsAckSequences[groupIndex][nodeIndex] <= 0) {
       int index = groupIndex * config.getNodePerGroup() + nodeIndex;
       int pos = this.getPosAcks() + RamcastConfig.SIZE_ACK * index;
-//      logger.debug(
-//          "Getting ack sequence of group index {} node index {} at calculated index {} pos {}",
-//          groupIndex,
-//          nodeIndex,
-//          index,
-//          pos + RamcastConfig.SIZE_ACK_VALUE);
       try {
         this.groupsAckSequences[groupIndex][nodeIndex] =
                 this.buffer.getInt(pos + RamcastConfig.SIZE_ACK_VALUE);

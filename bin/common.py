@@ -50,7 +50,8 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 25)
+    RDMA_NODES = emulab_noderange(1, 3)
+    # RDMA_NODES = ['node1', 'node1', 'node2']
     PATH_PROFILING = ''  # no profiling on emulab
     PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
 else:
@@ -206,3 +207,4 @@ CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.rdma.
 CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.rdma.SendReceiveBenchServer"
 CLASS_RDMA_READ_BENCH_CLIENT = "ch.usi.dslab.lel.ramcast.benchmark.rdma.ReadBenchClient"
 CLASS_RDMA_READ_BENCH_SERVER = "ch.usi.dslab.lel.ramcast.benchmark.rdma.ReadBenchServer"
+CLASS_RDMA_WRITE_BENCH_AGENT = "ch.usi.dslab.lel.ramcast.benchmark.rdma.WriteBenchAgent"

@@ -5,13 +5,15 @@ from datetime import datetime
 
 import common
 
-PROTOCOL = 'RDMA-READ'
-PROTOCOL = 'RDMA-SEND-RECEIVE'
-PROTOCOL = 'TCP'
+PROTOCOLS = ['RDMA-SEND-RECEIVE', 'RDMA-READ', 'TCP']
+PROTOCOLS = ['RDMA-SEND-RECEIVE', 'RDMA-READ']
+PROTOCOLS = ['TCP']
 
 NUM_RUNS = 1
-PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
-PACKAGE_SIZE = [96]
+PACKAGE_SIZE = [64, 512, 1024, 16384, 32768, 65536]
+PACKAGE_SIZE = [64, 512, 1024, 16384, 32768]
+PACKAGE_SIZE = [64]
+PACKAGE_SIZE = [64, 512, 1024, 2048, 4096, 8192, 16384, 32768]
 
 DURATION = 60
 WARMUP = 20
@@ -23,33 +25,39 @@ DEBUG = False
 
 BIND_PORT = 5000
 
-print "running benchmark for ", PROTOCOL
-
-if PROTOCOL is 'RDMA-SEND-RECEIVE':
-    CLASS_BENCH_SERVER = common.CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER
-    CLASS_BENCH_CLIENT = common.CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT
-    protocol_log_dir = 'rdma-send-receive-bench'
-elif PROTOCOL is 'RDMA-READ':
-    CLASS_BENCH_SERVER = common.CLASS_RDMA_READ_BENCH_SERVER
-    CLASS_BENCH_CLIENT = common.CLASS_RDMA_READ_BENCH_CLIENT
-    protocol_log_dir = 'rdma-send-receive-bench'
-elif PROTOCOL is 'TCP':
-    CLASS_BENCH_SERVER = common.CLASS_TCP_BENCH_SERVER
-    CLASS_BENCH_CLIENT = common.CLASS_TCP_BENCH_CLIENT
-    protocol_log_dir = 'tcp-bench'
-else:
-    print "Protocol is not defined"
-    exit(-1)
-
 
 def run():
-    for size in PACKAGE_SIZE:
-        orchestra(size)
+    for protocol in PROTOCOLS:
+        print "running benchmark for", protocol
+
+        if protocol == 'RDMA-SEND-RECEIVE':
+            CLASS_BENCH_SERVER = common.CLASS_RDMA_SEND_RECEIVE_BENCH_SERVER
+            CLASS_BENCH_CLIENT = common.CLASS_RDMA_SEND_RECEIVE_BENCH_CLIENT
+            protocol_log_dir = 'rdma-send-receive-bench'
+        elif protocol == 'RDMA-READ':
+            CLASS_BENCH_SERVER = common.CLASS_RDMA_READ_BENCH_SERVER
+            CLASS_BENCH_CLIENT = common.CLASS_RDMA_READ_BENCH_CLIENT
+            protocol_log_dir = 'rdma-read'
+        elif protocol == 'TCP':
+            CLASS_BENCH_SERVER = common.CLASS_TCP_BENCH_SERVER
+            CLASS_BENCH_CLIENT = common.CLASS_TCP_BENCH_CLIENT
+            protocol_log_dir = 'tcp-bench'
+        else:
+            print "Protocol is not defined"
+            exit(-1)
+
+        for size in PACKAGE_SIZE:
+            orchestra(size, CLASS_BENCH_SERVER, CLASS_BENCH_CLIENT, protocol_log_dir)
 
 
 # =======================================================================================================================
 
-java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -Xms3g -Xmx3g"
+java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC"
+if common.ENV_CLUSTER or common.ENV_LOCALHOST:
+    java_cmd = java_cmd + " -Xms3g -Xmx3g"
+if common.ENV_EMULAB:
+    java_cmd = java_cmd + " -Xms12g -Xmx12g"
+
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
 if DEBUG:
@@ -62,12 +70,12 @@ java_cmd = java_cmd + " -Dlogback.configurationFile=" + log4j_conf
 java_cmd = java_cmd + common.JAVA_CLASSPATH
 
 
-def orchestra(package_size):
+def orchestra(package_size, CLASS_BENCH_SERVER, CLASS_BENCH_CLIENT, protocol_log_dir):
     client_node = common.RDMA_NODES[1]
     server_node = common.RDMA_NODES[2]
 
     debug_log_dir = '{}/bin'.format(common.PATH_LIBRAMCAST_HOME)
-    log_dir = '{}/logs/{}/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, package_size, protocol_log_dir,
+    log_dir = '{}/logs/{}/{}b-{}'.format(common.PATH_LIBRAMCAST_HOME, protocol_log_dir, package_size,
                                          datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
 
     server_cmd = [java_cmd, '-DLOG_DIR=' + debug_log_dir, CLASS_BENCH_SERVER,

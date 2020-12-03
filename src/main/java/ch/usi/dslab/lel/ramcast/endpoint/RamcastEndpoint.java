@@ -294,8 +294,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
         length += putToBuffer(updateBuffer, (Class) data[i], data[++i]);
       }
       if (length > RamcastConfig.SIZE_SIGNAL) {
-        throw new IOException(
-                "Buffer size of [" + length + "] is too big. Only allow " + RamcastConfig.SIZE_SIGNAL);
+        throw new IOException("Buffer size of [" + length + "] is too big. Only allow " + RamcastConfig.SIZE_SIGNAL);
       }
       postSend.getWrMod(0).getSgeMod(0).setLength(length);
       postSend.getWrMod(0).getRdmaMod().setRemote_addr(address);
@@ -342,10 +341,13 @@ public class RamcastEndpoint extends RdmaEndpoint {
     if (postSend != null) {
       buffer.clear();
       int index = (int) postSend.getWrMod(0).getWr_id();
+      int written = 0;
       ByteBuffer writeBuf = verbCalls.writeBufs[index];
       writeBuf.clear();
       writeBuf.putInt(buffer.capacity() + 4);
+      written += 4;
       writeBuf.put(buffer);
+      written += buffer.capacity();
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
                 "[{}] [{}/{}] WRITE at position {} length {} buffer {}  write buffer capacity:{} / limit:{} / remaining: {} / first int {} /crc {}/ tail {}",
@@ -374,10 +376,16 @@ public class RamcastEndpoint extends RdmaEndpoint {
                   this.endpointId,
                   index,
                   this.remoteCellBlock);
-        postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
+
+        if (buffer.capacity() + 4 <= RamcastConfig.getInstance().getMaxinline())
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED | IbvSendWR.IBV_SEND_INLINE);
+        else
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
         verbCalls.pendingWritePostSend.put(index, postSend);
       } else {
         postSend.getWrMod(0).setSend_flags(0);
+        if (buffer.capacity() + 4 <= RamcastConfig.getInstance().getMaxinline())
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_INLINE);
       }
       postSend.execute();
       if (!signaled) {
@@ -395,6 +403,53 @@ public class RamcastEndpoint extends RdmaEndpoint {
       if (RamcastConfig.LOG_ENABLED)
         logger.debug(
                 "[{}/-1] don't have available postsend to write message. Wait", this.endpointId);
+      return false;
+    }
+  }
+
+  // FOR TESTING ONLY
+  protected boolean _writeTestResponse(long address, int lkey, ByteBuffer buffer) throws IOException {
+    SVCPostSend postSend = verbCalls.freeUpdatePostSend.poll();
+    boolean signaled = unsignaledUpdateCount % config.getSignalInterval() == 0;
+    if (postSend != null) {
+      int index = (int) postSend.getWrMod(0).getWr_id();
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug(
+                "[{}/{}] perform WRITE SIGNALED={} to {} at address {} lkey {} values {}, unsignaledUpdateCount {}/{}",
+                this.endpointId,
+                index,
+                signaled,
+                this.node,
+                address,
+                lkey,
+                buffer, unsignaledUpdateCount, config.getSignalInterval());
+
+      ByteBuffer updateBuffer = verbCalls.updateBufs[index - verbCalls.updatePostIndexOffset];
+      updateBuffer.clear();
+      buffer.clear();
+      updateBuffer.put(buffer);
+      postSend.getWrMod(0).getSgeMod(0).setLength(buffer.capacity());
+      postSend.getWrMod(0).getRdmaMod().setRemote_addr(address);
+      postSend.getWrMod(0).getRdmaMod().setRkey(lkey);
+      if (signaled) {
+        if (buffer.capacity() <= RamcastConfig.getInstance().getMaxinline())
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED | IbvSendWR.IBV_SEND_INLINE);
+        else
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
+        unsignaledUpdateCount = 1;
+        verbCalls.pendingUpdatePostSend.put(index, postSend);
+        postSend.execute();
+      } else {
+        if (buffer.capacity() <= RamcastConfig.getInstance().getMaxinline())
+          postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_INLINE);
+        unsignaledUpdateCount++;
+        postSend.execute();
+        verbCalls.freeUpdatePostSend.add(postSend);
+      }
+      return true;
+    } else {
+      if (RamcastConfig.LOG_ENABLED)
+        logger.debug("[{}/-1] don't have available postsend. Wait", this.endpointId);
       return false;
     }
   }
@@ -632,6 +687,17 @@ public class RamcastEndpoint extends RdmaEndpoint {
     }
   }
 
+  // FOR TESTING ONLY
+  public void writeTestResponse(long address, int lkey, ByteBuffer buffer) throws IOException {
+    while (!_writeTestResponse(address, lkey, buffer)) {
+      try {
+        Thread.sleep(0);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
   public void writeMessage(ByteBuffer buffer) throws IOException {
     boolean signaled = unsignaledWriteCount % config.getSignalInterval() == 0;
     if (signaled) {
@@ -711,18 +777,8 @@ public class RamcastEndpoint extends RdmaEndpoint {
       recvBuffer.putInt(start + RamcastConfig.POS_LENGTH_BUFFER, 0);
       // update remote head
       this.sharedCellBlock.advanceTail();
-      if (RamcastConfig.LOG_ENABLED)
-        logger.trace(
-                "[{}] SERVER MEMORY after polling: {}",
-                this.endpointId,
-                this.sharedCellBlock.toFullString());
-
       this.dispatchRemoteWrite(message);
     } catch (Exception e) {
-      //            System.out.println("Ticket=" + ticket + " LENGTH=" + length + "
-      // buffer.position=" + recvBuffer.position() + " buffer.limit=" + recvBuffer.limit() + "
-      // buffer.remaining=" + recvBuffer.remaining() + " reading at " + (block.getHeadOffset() +
-      // length - 4));
       e.printStackTrace();
       logger.error("Error pollForData1", e);
       System.exit(1);

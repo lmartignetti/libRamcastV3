@@ -241,7 +241,6 @@ public class RamcastMemoryBlock {
   public int freeSlot(int slot) {
     int freed = 0;
     if (this.headOffset == slot) {
-      //      logger.debug("Freeing slot {}", slot);
       this.moveHeadOffset(1);
       freed++;
     } else {
@@ -251,7 +250,6 @@ public class RamcastMemoryBlock {
     // check if we can free any slot
     for (int s : freeableSlots) {
       if (this.headOffset == s) {
-        //        logger.debug("Freeing slot {}", slot);
         this.moveHeadOffset(1);
         freed++;
       }
