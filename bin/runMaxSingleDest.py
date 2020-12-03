@@ -98,44 +98,46 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
     client_nodes = available_nodes[i:]
 
     remaining_clients = num_client_per_dest * num_dest - num_dest
-    clients_per_node = int(math.ceil(remaining_clients * 1.0 / len(client_nodes)))
-
-    # then fill up clients to remaining nodes
     j = 0
     i = 0
     client_per_node_used = 0
     last_node = None
+    if remaining_clients > 0:
+        clients_per_node = int(math.ceil(remaining_clients * 1.0 / len(client_nodes)))
+        # then fill up clients to remaining nodes
 
-    while j < remaining_clients:
-        config["group_members"].append({
-            "gid": g,
-            "nid": p,
-            "port": CONF_PORT + client_per_node_used,
-            "host": client_nodes[i],
-        })
-        last_node = client_nodes[i]
-        last_client_per_node_used = client_per_node_used
-        p += 1
-        j += 1
-        client_per_node_used += 1
-        if p == num_process_per_group:
-            p = 0
-            g += 1
-        if client_per_node_used == clients_per_node:
-            i += 1
-            client_per_node_used = 0
 
-    # fill up the last group. these process is just for filling group, not participate in anything
-    if last_node is None: last_node = client_nodes[i]
-    while p < num_process_per_group:
-        last_client_per_node_used += 1
-        config["group_members"].append({
-            "gid": g,
-            "nid": p,
-            "port": CONF_PORT + last_client_per_node_used,
-            "host": last_node
-        })
-        p += 1
+
+        while j < remaining_clients:
+            config["group_members"].append({
+                "gid": g,
+                "nid": p,
+                "port": CONF_PORT + client_per_node_used,
+                "host": client_nodes[i],
+            })
+            last_node = client_nodes[i]
+            last_client_per_node_used = client_per_node_used
+            p += 1
+            j += 1
+            client_per_node_used += 1
+            if p == num_process_per_group:
+                p = 0
+                g += 1
+            if client_per_node_used == clients_per_node:
+                i += 1
+                client_per_node_used = 0
+
+        # fill up the last group. these process is just for filling group, not participate in anything
+        if last_node is None: last_node = client_nodes[i]
+        while p < num_process_per_group:
+            last_client_per_node_used += 1
+            config["group_members"].append({
+                "gid": g,
+                "nid": p,
+                "port": CONF_PORT + last_client_per_node_used,
+                "host": last_node
+            })
+            p += 1
 
     systemConfigurationFile = open(config_file, 'w')
     json.dump(config, systemConfigurationFile, sort_keys=False, indent=4, ensure_ascii=False)
