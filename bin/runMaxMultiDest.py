@@ -13,13 +13,13 @@ NUM_RUNS = 1
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
 NUM_DEST = [1, 2, 4, 8]
-NUM_DEST = [1]
+NUM_DEST = [2]
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-NUM_CLIENTS = [6]
+NUM_CLIENTS = [1]
 
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [256]
-PACKAGE_SIZE = [360]
+PACKAGE_SIZE = [98]
 
 DURATION = 60
 WARMUP = 20
@@ -43,7 +43,6 @@ if PROFILING: DURATION = 9999
 
 def run():
     for size in PACKAGE_SIZE:
-        # for g in NUM_GROUPS:
         for d in NUM_DEST:
             for c in NUM_CLIENTS:
                 orchestra(d, c, NUM_PROCESSES, size)

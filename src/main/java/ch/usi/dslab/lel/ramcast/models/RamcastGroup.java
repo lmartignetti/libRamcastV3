@@ -18,7 +18,6 @@ public class RamcastGroup {
 
   int groupId;
   private HashMap<Integer, RamcastNode> nodeMap;
-  private boolean isShadow;
   private RamcastNode leader;
   private int followers;
 
@@ -84,11 +83,6 @@ public class RamcastGroup {
     return nodeMap.keySet().size();
   }
 
-  //    public List<Integer> getMembers() {
-  //        return nodeMap.entrySet().stream().map(entry ->
-  // entry.getValue().getNodeId()).collect(Collectors.toList());
-  //    }
-  // get member of single group
   public List<RamcastNode> getMembers() {
     return new ArrayList<>(nodeMap.values());
   }

@@ -71,8 +71,6 @@ public class RamcastConfig {
   private int maxinline;
   private int signalInterval;
   private boolean polling;
-  private String zkHost;
-  private int payloadSize = 32;
   private int groupCount;
   private int nodePerGroup = 1;
   private int reservedSize;
@@ -128,14 +126,6 @@ public class RamcastConfig {
     this.polling = polling;
   }
 
-  public int getPayloadSize() {
-    return payloadSize;
-  }
-
-  public void setPayloadSize(int payloadSize) {
-    this.payloadSize = payloadSize;
-  }
-
   public int getMaxinline() {
     return maxinline;
   }
@@ -164,10 +154,6 @@ public class RamcastConfig {
     return reservedSize;
   }
 
-  public String getZkHost() {
-    return zkHost;
-  }
-
   public void loadConfig(String filename) {
     try {
 
@@ -177,9 +163,6 @@ public class RamcastConfig {
 
       if (config.containsKey("queueLength")) {
         this.queueLength = getJSInt(config, "queueLength");
-      }
-      if (config.containsKey("zkHost")) {
-        this.zkHost = String.valueOf(config.get("zkHost"));
       }
       if (config.containsKey("debug")) {
         LOG_ENABLED = (Boolean) (config.get("debug"));

@@ -109,7 +109,8 @@ public class RamcastMessage {
             + groupCount * RamcastConfig.SIZE_MSG_GROUP
             + groupCount * RamcastConfig.SIZE_MSG_SLOT
             + RamcastConfig.SIZE_CHECKSUM
-            + 64; // TODO: find correct value for this
+            + groupCount * (RamcastConfig.getInstance().getNodePerGroup()) * RamcastConfig.SIZE_ACK
+            + RamcastConfig.SIZE_BUFFER_LENGTH;
   }
 
   public int calculateBasedLength() {
@@ -139,8 +140,6 @@ public class RamcastMessage {
     int pos = this.serializedBuffer.position();
     long crc = StringUtils.calculateCrc32((ByteBuffer) this.serializedBuffer.position(0).limit(pos));
     this.serializedBuffer.clear();
-    if (RamcastConfig.LOG_ENABLED)
-      logger.trace("Current pos: {}, cap {}, crc {}", pos, this.serializedBuffer.capacity(), crc);
     this.serializedBuffer.putLong(pos, crc);
     return this.serializedBuffer;
   }
@@ -196,14 +195,6 @@ public class RamcastMessage {
   public short getGroup(int index) {
     // this is when the msg has just been created;
     if (this.buffer == null) return this.groups[index];
-
-    //    if (this.groups == null) {
-    //      this.groups = new short[this.getGroupCount()];
-    //    }
-    //    if (this.groups[index] <= 0) {
-    //      this.groups[index] = this.buffer.getShort(getPosGroups() + 2 * index);
-    //    }
-    //    return this.groups[index];
     return this.buffer.getShort(getPosGroups() + 2 * index);
   }
 
@@ -211,15 +202,6 @@ public class RamcastMessage {
   public short getGroupSlot(int index) {
     // this is when the msg has just been created;
     if (this.buffer == null) return this.slots[index];
-    //
-    //    if (this.slots == null) {
-    //      this.slots = new short[this.getGroupCount()];
-    //    }
-    //    if (this.slots[index] <= 0) {
-    //      this.slots[index] =
-    //          this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
-    //    }
-    //    return this.slots[index];
     try {
       return this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
     } catch (Exception e) {
@@ -343,15 +325,6 @@ public class RamcastMessage {
     return address;
   }
 
-  // return the slot # of this message on group with groupIndex
-  //  public int getSlotOfGroupIndex(int groupIndex) {
-  //    return slots[groupIndex];
-  //  }
-  //
-  //  public int getSlotOfGroupId(int groupId) {
-  //    return slots[getGroupIndex(groupId)];
-  //  }
-
   public RamcastMemoryBlock getMemoryBlock() {
     return memoryBlock;
   }
@@ -381,7 +354,7 @@ public class RamcastMessage {
   // CONVENTION: Ack Position of a node depends on its ID
   public int getPosAck(RamcastNode node) {
     int groupIndex = getGroupIndex(node.getGroupId());
-    if (RamcastConfig.LOG_ENABLED)
+    if (logger.isDebugEnabled())
       logger.trace(
               "[{}] getPosAck of node {} groupIndex {} getPosAcks() {}",
               getId(),
@@ -395,8 +368,13 @@ public class RamcastMessage {
 
   public void writeAck(RamcastNode node, int ballotNumber, int sequenceNumber) {
     int position = getPosAck(node);
-    this.buffer.putInt(position, ballotNumber);
-    this.buffer.putInt(position + 4, sequenceNumber);
+    try {
+      this.buffer.putInt(position, ballotNumber);
+      this.buffer.putInt(position + 4, sequenceNumber);
+    } catch (Exception e) {
+      System.out.println("Failed to write at position " + position + ". Buffer: " + buffer);
+      throw e;
+    }
   }
 
   public short getSlot() {

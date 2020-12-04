@@ -15,7 +15,6 @@ public class RamcastNode {
   private String address;
   private int port;
   private boolean isLeader = false;
-  private boolean isClient = false;
   private int roleId;
   private InetSocketAddress inetAddress;
 
@@ -59,10 +58,6 @@ public class RamcastNode {
 
   public boolean hasServerRole() {
     return roleId == RamcastConfig.ROLE_BOTH || roleId == RamcastConfig.ROLE_SERVER;
-  }
-
-  public void setClient(boolean client) {
-    isClient = client;
   }
 
   public boolean isLeader() {

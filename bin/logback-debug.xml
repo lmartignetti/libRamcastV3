@@ -25,12 +25,17 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="debug" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.processors.HandshakingProcessor" level="error" additivity="false">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint" level="debug" additivity="false">
+    <logger name="ch.usi.dslab.lel.ramcast.processors.LeaderElectionProcessor" level="error" additivity="false">
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="STDOUT"/>
+    </logger>
+
+    <logger name="ch.usi.dslab.lel.ramcast.endpoint.RamcastEndpoint" level="error" additivity="false">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>
     </logger>

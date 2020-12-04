@@ -110,7 +110,6 @@ public class WriteBenchAgent {
     RamcastConfig.SIZE_SIGNAL = payloadSize;
     config = RamcastConfig.getInstance();
     config.loadConfig(configFile);
-    config.setPayloadSize(payloadSize);
 
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
@@ -167,7 +166,7 @@ public class WriteBenchAgent {
         startTime = System.nanoTime();
         buffer.putLong(4, startTime);
 
-        if (RamcastConfig.LOG_ENABLED) {
+        if (logger.isDebugEnabled()) {
           logger.debug("Client {} start new request {} msgId [{}]", clientId, i, id);
         }
 

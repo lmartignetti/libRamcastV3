@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 import java.util.List;
 
 public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
-  //  private RamcastNode node;
 
   //  |          n1 (0)       |           n2 (1)      |          n1 (2)       |          n2 (3)
   //  |
@@ -22,11 +21,6 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
   //  b: round, clock, status(p:pending, d: delivered)
 
   protected static final Logger logger = LoggerFactory.getLogger(RamcastTsMemoryBlock.class);
-
-  public RamcastTsMemoryBlock(
-          RamcastNode node, long address, int lkey, int capacity, ByteBuffer buffer) {
-    super(address, lkey, capacity, buffer);
-  }
 
   public RamcastTsMemoryBlock(long address, int lkey, int capacity, ByteBuffer buffer) {
     super(address, lkey, capacity, buffer);
@@ -58,29 +52,12 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
     assert getBuffer() != null;
     int nodeOffset = getNodeOffset(message.getSource());
     int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
-    if (RamcastConfig.LOG_ENABLED)
-      logger.trace(
-              "[{}] Writing to slot {} index {} round {} clock {} position {}",
-              message.getId(),
-              message.getGroupSlot(groupIndex),
-              groupIndex,
-              round,
-              clock,
-              position
-      );
+    if (logger.isDebugEnabled())
+      logger.trace("[{}] Writing to slot {} index {} round {} clock {} position {}",
+              message.getId(), message.getGroupSlot(groupIndex), groupIndex, round, clock, position);
     this.getBuffer().putInt(position, round);
     this.getBuffer().putInt(position + 4, clock);
   }
-
-  //  // FUO is the last 4 bytes of the buffer
-  //  public int getFUO() {
-  //    assert getBuffer() != null;
-  //    return ((ByteBuffer) getBuffer().clear())
-  //        .getInt(
-  //            RamcastGroup.getGroupCount()
-  //                * RamcastConfig.SIZE_TIMESTAMP
-  //                * RamcastConfig.getInstance().getQueueLength());
-  //  }
 
   public int getNodeOffset(RamcastNode node) {
     return node.getOrderId()
@@ -88,13 +65,6 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
             * RamcastGroup.getGroupCount()
             * RamcastConfig.getInstance().getQueueLength()
             + RamcastConfig.SIZE_FUO);
-    //    return node.getGroupId()
-    //            * RamcastConfig.getInstance().getNodePerGroup()
-    //            * (RamcastConfig.SIZE_TIMESTAMP * RamcastConfig.getInstance().getQueueLength()
-    //                + RamcastConfig.SIZE_FUO)
-    //        + node.getNodeId()
-    //            * (RamcastConfig.SIZE_TIMESTAMP * RamcastConfig.getInstance().getQueueLength()
-    //                + RamcastConfig.SIZE_FUO);
   }
 
   @Override
@@ -108,14 +78,9 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
         for (int g = 0; g < RamcastGroup.getGroupCount(); g++) {
           int offset = nodeOffset + getSlotOffset(i) + g * RamcastConfig.SIZE_TIMESTAMP;
           byte status = this.getBuffer().get(offset + 8);
-          if (RamcastConfig.LOG_ENABLED)
-            logger.trace(
-                    "printing ts block node {}, slot {} node offset {} offset {}, buffer {}",
-                    node,
-                    i,
-                    nodeOffset,
-                    offset,
-                    getBuffer());
+          if (logger.isDebugEnabled())
+            logger.trace("printing ts block node {}, slot {} node offset {} offset {}, buffer {}",
+                    node, i, nodeOffset, offset, getBuffer());
           ret.append(this.getBuffer().getInt(offset))
                   .append("|")
                   .append(this.getBuffer().getInt(offset + 4))
@@ -127,7 +92,6 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
       }
       if (nodes.indexOf(node) != RamcastGroup.getTotalNodeCount() - 1) ret.append("║║");
     }
-    //    ret.append("║").append(this.getFUO());
     return StringUtils.formatMessage(ret.toString());
   }
 
@@ -141,31 +105,21 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
     assert this.getAddress() != 0;
     int nodeOffset = getNodeOffset(node);
     int position = getSlotOffset(slot) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
-    if (RamcastConfig.LOG_ENABLED)
-      logger.trace(
-              "offset for slot {} groupIndex {} is {}, node offset {}",
-              slot,
-              groupIndex,
-              position,
-              nodeOffset);
+    if (logger.isDebugEnabled())
+      logger.trace("offset for slot {} groupIndex {} is {}, node offset {}",
+              slot, groupIndex, position, nodeOffset);
     return this.getAddress() + nodeOffset + position;
   }
 
   public int getTimestampOffset(RamcastMessage message, int groupIndex) {
     int nodeOffset = getNodeOffset(message.getSource());
-    return nodeOffset
-            + getSlotOffset(message.getGroupSlot(groupIndex))
-            + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
+    return nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
   }
 
   public boolean isFulfilled(RamcastMessage message) {
     int nodeOffset = getNodeOffset(message.getSource());
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
-      int position =
-              nodeOffset
-                      + getSlotOffset(message.getGroupSlot(groupIndex))
-                      + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
-
+      int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
       if (getBuffer().getInt(position) <= 0 || getBuffer().getInt(position + 4) <= 0) return false;
     }
     return true;
@@ -175,10 +129,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
     int max = Integer.MIN_VALUE;
     int nodeOffset = getNodeOffset(message.getSource());
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
-      int position =
-              nodeOffset
-                      + getSlotOffset(message.getGroupSlot(groupIndex))
-                      + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
+      int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
       if (max < getBuffer().getInt(position + 4)) max = getBuffer().getInt(position + 4);
     }
     return max;
@@ -187,17 +138,10 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
   public void freeTimestamp(RamcastMessage message) {
     int nodeOffset = getNodeOffset(message.getSource());
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
-      int position =
-              nodeOffset
-                      + getSlotOffset(message.getGroupSlot(groupIndex))
-                      + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
-      if (RamcastConfig.LOG_ENABLED)
-        logger.debug(
-                "[{}] freeing memory at {} {} {}",
-                message.getId(),
-                position,
-                position + 4,
-                (ByteBuffer) getBuffer().clear());
+      int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
+      if (logger.isDebugEnabled())
+        logger.debug("[{}] freeing memory at {} {} {}",
+                message.getId(), position, position + 4, (ByteBuffer) getBuffer().clear());
       ((ByteBuffer) getBuffer().clear()).putInt(position, 0);
       ((ByteBuffer) getBuffer().clear()).putInt(position + 4, 0);
       ((ByteBuffer) getBuffer().clear()).put(position + 8, (byte) 0);
@@ -207,10 +151,7 @@ public class RamcastTsMemoryBlock extends RamcastMemoryBlock {
   public void setDelivered(RamcastMessage message) {
     int nodeOffset = getNodeOffset(message.getSource());
     for (int groupIndex = 0; groupIndex < message.getGroupCount(); groupIndex++) {
-      int position =
-              nodeOffset
-                      + getSlotOffset(message.getGroupSlot(groupIndex))
-                      + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
+      int position = nodeOffset + getSlotOffset(message.getGroupSlot(groupIndex)) + groupIndex * RamcastConfig.SIZE_TIMESTAMP;
       ((ByteBuffer) getBuffer().clear()).put(position + 8, (byte) 1);
     }
   }

@@ -23,7 +23,8 @@ public class RamcastMemoryBlock {
 
   private boolean tailPassedHead = false;
 
-  private RamcastMemoryBlock() {}
+  private RamcastMemoryBlock() {
+  }
 
   public RamcastMemoryBlock(long address, int lkey, int capacity, ByteBuffer buffer) {
     this.address = address;
@@ -34,15 +35,6 @@ public class RamcastMemoryBlock {
     this.tailOffset = 0;
     this.freeableSlots = new TreeSet<>();
   }
-
-  //  public void update(long address, int lkey, int length, ByteBuffer buffer) {
-  //    this.address = address;
-  //    this.lkey = lkey;
-  //    this.capacity = length;
-  //    this.headOffset = 0;
-  //    this.tailOffset = 0;
-  //    this.buffer = buffer;
-  //  }
 
   @Override
   public int hashCode() {
@@ -63,66 +55,34 @@ public class RamcastMemoryBlock {
     return lkey == that.lkey;
   }
 
-  //  @Override
-  //  public String toString() {
-  //    return "RamcastMemoryBlock{"
-  //        + "address="
-  //        + address
-  //        + ", lkey="
-  //        + lkey
-  //        + ", capacity="
-  //        + capacity
-  //        + '}';
-  //  }
-
   @Override
   public String toString() {
     return "Mem{"
-        + "head="
-        + headOffset
-        + ", tail="
-        + tailOffset
-        + ", pass="
-        + tailPassedHead
-        + ", address="
-        + address
-        + ", lkey="
-        + lkey
-        + ", capacity="
-        + capacity
-        + ", buffer="
-        + buffer
-        + "}";
+            + "head=" + headOffset
+            + ", tail=" + tailOffset
+            + ", pass=" + tailPassedHead
+            + ", address=" + address
+            + ", lkey=" + lkey
+            + ", capacity=" + capacity
+            + ", buffer=" + buffer
+            + "}";
   }
 
   public String toFullString() {
     StringBuilder ret =
-        new StringBuilder(
-            "Mem{"
-                + "head="
-                + headOffset
-                + ", tail="
-                + tailOffset
-                + ", pass="
-                + tailPassedHead
-                + ", address="
-                + address
-                + ", lkey="
-                + lkey
-                + ", capacity="
-                + capacity
-                + ", buffer="
-                + buffer
-                + "}\n");
+            new StringBuilder("Mem{"
+                    + "head=" + headOffset
+                    + ", tail=" + tailOffset
+                    + ", pass=" + tailPassedHead
+                    + ", address=" + address
+                    + ", lkey=" + lkey
+                    + ", capacity=" + capacity
+                    + ", buffer=" + buffer
+                    + "}\n");
     for (int i = 0; i < RamcastConfig.getInstance().getQueueLength(); i++) {
       buffer.clear();
-      RamcastMessage msg =
-          new RamcastMessage(
-              ((ByteBuffer)
-                      (buffer
-                          .position(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_BUFFER_LENGTH)
-                          .limit(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_MESSAGE)))
-                  .slice(),
+      RamcastMessage msg = new RamcastMessage(((ByteBuffer) (buffer.position(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_BUFFER_LENGTH)
+              .limit(i * RamcastConfig.SIZE_MESSAGE + RamcastConfig.SIZE_MESSAGE))).slice(),
               null,
               this);
       ret.append("slot=").append(i).append("::").append(msg).append("\n");
@@ -181,41 +141,31 @@ public class RamcastMemoryBlock {
 
   public void moveTailOffset(int slots) {
     if (tailPassedHead && tailOffset + slots > headOffset) {
-      throw new IllegalStateException(
-          "Tail can not pass head. Current head="
-              + headOffset
-              + " and tail="
-              + tailOffset
-              + " tail passed head="
-              + tailPassedHead);
+      throw new IllegalStateException("Tail can not pass head. Current head=" + headOffset + " and tail=" + tailOffset + " tail passed head=" + tailPassedHead);
     }
     this.tailOffset += slots;
     if (tailOffset * RamcastConfig.SIZE_MESSAGE == this.capacity) {
       tailOffset = 0;
       if (!tailPassedHead) tailPassedHead = true;
-      if (RamcastConfig.LOG_ENABLED) logger.trace("Reseting tail {}, endpoint {}", this, endpoint);
+      if (logger.isDebugEnabled()) logger.trace("Reseting tail {}, endpoint {}", this, endpoint);
     }
-  }
-
-  public void advanceHead() {
-    moveHeadOffset(1);
   }
 
   public void moveHeadOffset(int slots) {
     if (!tailPassedHead && headOffset + slots > tailOffset) {
       throw new IllegalStateException(
-          "Head can not pass tail. Current head="
-              + headOffset
-              + " and tail="
-              + tailOffset
-              + " tail passed head="
-              + tailPassedHead);
+              "Head can not pass tail. Current head="
+                      + headOffset
+                      + " and tail="
+                      + tailOffset
+                      + " tail passed head="
+                      + tailPassedHead);
     }
     this.headOffset += slots;
     if (headOffset * RamcastConfig.SIZE_MESSAGE == this.capacity) {
       headOffset = 0;
       if (tailPassedHead) tailPassedHead = false;
-      if (RamcastConfig.LOG_ENABLED) logger.trace("Reseting head {}, endpoint {}", this, endpoint);
+      if (logger.isDebugEnabled()) logger.trace("Reseting head {}, endpoint {}", this, endpoint);
     }
   }
 
@@ -227,7 +177,8 @@ public class RamcastMemoryBlock {
     return this.headOffset;
   }
 
-  public void setHeadOffset(int remoteHeadOffset) {}
+  public void setHeadOffset(int remoteHeadOffset) {
+  }
 
   public int getRemainingSlots() {
     if (!tailPassedHead) {

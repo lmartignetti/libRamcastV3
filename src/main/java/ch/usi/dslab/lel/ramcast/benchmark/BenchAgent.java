@@ -45,7 +45,6 @@ public class BenchAgent {
   private static final Logger logger = LoggerFactory.getLogger(BenchAgent.class);
   Semaphore sendPermits;
   private ThroughputPassiveMonitor tpMonitor;
-  //  private ThroughputPassiveMonitor tpMonitorServer;
   private LatencyPassiveMonitor latMonitor;
   private LatencyDistributionPassiveMonitor cdfMonitor;
 
@@ -141,7 +140,6 @@ public class BenchAgent {
     RamcastConfig.SIZE_MESSAGE = payloadSize;
     config = RamcastConfig.getInstance();
     config.loadConfig(configFile);
-    config.setPayloadSize(payloadSize);
 
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
@@ -149,7 +147,6 @@ public class BenchAgent {
     if (groupId >= destinationFrom && groupId < destinationFrom + destinationCount) callbackMonitored = true;
 
     DataGatherer.configure(experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
-//    this.tpMonitorServer = new ThroughputPassiveMonitor(this.clientId, "server_overall", true);
     if (isClient) {
       this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
       if (callbackMonitored) {
@@ -166,26 +163,6 @@ public class BenchAgent {
     this.agent.establishConnections();
     logger.info("NODE READY");
     Thread.sleep(2000);
-
-//    new Thread(() -> {
-//      Scanner scanner = new Scanner(System.in);
-//      String readString = scanner.nextLine();
-//      while (readString != null) {
-//        System.out.println(readString);
-//        if (readString.equals("")) {
-//          System.out.println("Toggle execution.");
-//          isRunning = !isRunning;
-//          try {
-//            releasePermit();
-//          } catch (Exception e) {
-//          }
-//        }
-//        if (scanner.hasNextLine())
-//          readString = scanner.nextLine();
-//        else
-//          readString = null;
-//      }
-//    }).start();
 
 //    this.startBenchmark();
     this.startBenchmarkSync();
@@ -235,7 +212,7 @@ public class BenchAgent {
         while (!agent.isAllDestReady(dest, lastMsgId)) {
           Thread.yield();
         }
-        if (RamcastConfig.LOG_ENABLED) {
+        if (logger.isDebugEnabled()) {
           logger.debug("Client {} start new request {} msgId [{}]", clientId, i, id);
         }
         agent.multicast(sampleMessage, dest);
@@ -245,15 +222,12 @@ public class BenchAgent {
     }
   }
 
-  private void startBenchmarkSync() throws IOException, InterruptedException {
+  private void startBenchmarkSync() throws IOException {
     logger.info("Node {} start benchmarking", this.agent.getNode());
 
     if (isClient) {
       sendPermits = new Semaphore(1);
       int payloadSize = RamcastConfig.SIZE_MESSAGE - RamcastMessage.calculateOverhead(destinationCount);
-      if (destinationCount == 4) payloadSize -= 128;
-      if (destinationCount == 8) payloadSize -= 230;
-//      int payloadSize = 16;
 
       ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
       buffer.putInt(clientId);
@@ -266,9 +240,7 @@ public class BenchAgent {
 
       RamcastMessage sampleMessage = this.agent.createMessage(0, buffer, dest);
       int i = 0;
-      int lastMsgId = -1;
-
-      logger.info("Client node {} sending request to destination {} with payload size={}", this.agent.getNode(), dest, payloadSize);
+      logger.info("Client node {} sending request to destination {} with payload size={}, overhead={}", this.agent.getNode(), dest, payloadSize, RamcastMessage.calculateOverhead(destinationCount));
       while (isRunning) {
         if (RamcastConfig.DELAY)
           try {
@@ -276,7 +248,6 @@ public class BenchAgent {
           } catch (InterruptedException e) {
             e.printStackTrace();
           }
-
         int id = Objects.hash(i++, this.clientId);
         sampleMessage.setId(id);
         this.agent.setSlot(sampleMessage, dest);
@@ -284,7 +255,7 @@ public class BenchAgent {
         startTime = System.nanoTime();
         buffer.putLong(4, startTime);
 
-        if (RamcastConfig.LOG_ENABLED) {
+        if (logger.isDebugEnabled()) {
           logger.debug("Client {} start new request {} msgId [{}]", clientId, i, id);
         }
 
