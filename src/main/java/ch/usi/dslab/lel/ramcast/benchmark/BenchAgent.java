@@ -154,7 +154,7 @@ public class BenchAgent {
         this.latMonitor = new LatencyPassiveMonitor(this.clientId, "client_overall", true);
         this.cdfMonitor = new LatencyDistributionPassiveMonitor(this.clientId, "client_overall", true);
         // create more datapoint. Default: 10k=> less point
-        LatencyDistributionPassiveMonitor.setBucketWidthNano(100);
+        LatencyDistributionPassiveMonitor.setBucketWidthNano(10);
       }
     }
 
@@ -229,26 +229,33 @@ public class BenchAgent {
       sendPermits = new Semaphore(1);
       int payloadSize = RamcastConfig.SIZE_MESSAGE - RamcastMessage.calculateOverhead(destinationCount);
 
-      ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
-      buffer.putInt(clientId);
-      while (buffer.remaining() > 0) buffer.put((byte) 1);
-
       List<RamcastGroup> dest = new ArrayList<>();
       for (int i = 0; i < destinationCount; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 
+      logger.info("Client node {} sending request to destination {} with payload size={}, overhead={}", this.agent.getNode(), dest, payloadSize, RamcastMessage.calculateOverhead(destinationCount));
+
+      ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
+      buffer.putInt(clientId);
+      while (buffer.remaining() > 0) buffer.put((byte) 1);
+
       RamcastMessage sampleMessage = this.agent.createMessage(0, buffer, dest);
       int i = 0;
-      logger.info("Client node {} sending request to destination {} with payload size={}, overhead={}", this.agent.getNode(), dest, payloadSize, RamcastMessage.calculateOverhead(destinationCount));
-      while (isRunning) {
+
+      while (!Thread.interrupted()) {
         if (RamcastConfig.DELAY)
           try {
             Thread.sleep(1000);
           } catch (InterruptedException e) {
             e.printStackTrace();
           }
-        int id = Objects.hash(i++, this.clientId);
+        try {
+          Thread.sleep(1);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+       int id = Objects.hash(i++, this.clientId);
         sampleMessage.setId(id);
         this.agent.setSlot(sampleMessage, dest);
 

@@ -13,9 +13,9 @@ NUM_RUNS = 1
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
 NUM_DEST = [1, 2, 4, 8]
-NUM_DEST = [2]
+NUM_DEST = [2, 3]
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-NUM_CLIENTS = [1]
+NUM_CLIENTS = [1, 2, 3, 4]
 
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [256]
@@ -25,9 +25,9 @@ DURATION = 60
 WARMUP = 20
 
 PROFILING = False
-DEBUG = True
 DELAY = False
 DEBUG = False
+DEBUG = True
 
 # RDMA config
 CONF_QUEUE_LENGTH = 8
@@ -37,6 +37,7 @@ CONF_POLLING = True
 CONF_MAX_INLINE = 64
 CONF_PORT = 9000
 CONF_SIGNAL_INTERVAL = 4
+CONF_TIMESTAMP_SIGNAL_INTERVAL = 1
 
 if PROFILING: DURATION = 9999
 
@@ -72,6 +73,7 @@ def gen_config(num_process_per_group, num_dest, num_clients, config_file):
     config["polling"] = CONF_POLLING
     config["maxinline"] = CONF_MAX_INLINE
     config["signalInterval"] = CONF_SIGNAL_INTERVAL
+    config["timestampSignalInterval"] = CONF_TIMESTAMP_SIGNAL_INTERVAL
     config["debug"] = DEBUG
     config["delay"] = DELAY
     available_nodes = common.RDMA_NODES
@@ -100,7 +102,7 @@ def gen_config(num_process_per_group, num_dest, num_clients, config_file):
 
     client_nodes = available_nodes[i:]
     if len(client_nodes) > 0:
-        remaining_clients = num_clients - 1 #one client is included in group 0
+        remaining_clients = num_clients - 1  # one client is included in group 0
         clients_per_node = int(math.ceil(remaining_clients * 1.0 / len(client_nodes)))
 
         # then fill up clients to remaining nodes
@@ -197,7 +199,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     dest_from = 0
 
     for k in range(0, num_clients - clients_used):  # already provide 1 client in the group
-        cmds[i][1] = cmds[i][1] + ' ' + ' '.join(["-df", str(dest_from), "-dc", str(num_destinations), "-isClient", "1"])
+        cmds[i][1] = cmds[i][1] + ' ' + ' '.join(
+            ["-df", str(dest_from), "-dc", str(num_destinations), "-isClient", "1"])
         i += 1
     # dest_from += 1
 

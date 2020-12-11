@@ -43,7 +43,6 @@ import java.util.concurrent.Semaphore;
 
 public class WriteBenchAgent {
   private static final Logger logger = LoggerFactory.getLogger(WriteBenchAgent.class);
-  Semaphore sendPermits;
   private ThroughputPassiveMonitor tpMonitor;
   private LatencyPassiveMonitor latMonitor;
   private LatencyDistributionPassiveMonitor cdfMonitor;
@@ -113,11 +112,7 @@ public class WriteBenchAgent {
 
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
-    boolean callbackMonitored = false;
-    if (isClient) callbackMonitored = true;
-
     DataGatherer.configure(experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
-//    this.tpMonitorServer = new ThroughputPassiveMonitor(this.clientId, "server_overall", true);
     if (isClient) {
       this.tpMonitor = new ThroughputPassiveMonitor(this.clientId, "client_overall", true);
       logger.info("Start extra monitor for latency");

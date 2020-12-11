@@ -17,7 +17,7 @@ def get_username():
 
 
 DEAD_NODES = [2, 7]
-EMULAB_DEAD_NODES = []
+EMULAB_DEAD_NODES = [3]
 
 ENV_CLUSTER = False
 ENV_EMULAB = False

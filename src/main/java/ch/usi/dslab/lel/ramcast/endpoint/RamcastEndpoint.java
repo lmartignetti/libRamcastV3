@@ -5,7 +5,6 @@ import ch.usi.dslab.lel.ramcast.models.RamcastMemoryBlock;
 import ch.usi.dslab.lel.ramcast.models.RamcastMessage;
 import ch.usi.dslab.lel.ramcast.models.RamcastNode;
 import ch.usi.dslab.lel.ramcast.models.RamcastTsMemoryBlock;
-import ch.usi.dslab.lel.ramcast.utils.StringUtils;
 import com.ibm.disni.RdmaEndpoint;
 import com.ibm.disni.RdmaEndpointGroup;
 import com.ibm.disni.util.MemoryUtils;
@@ -50,7 +49,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
   // Memory manager for timestamp buffer, put it here to revoke later
   private IbvMr sharedTimestampMr;
   private int unsignaledWriteCount = 0;
-  private int unsignaledUpdateCount = 0;
+  private int unsignaledUpdateCount = 1;
   private ByteBuffer remoteHeadBuffer; // shared buffer for client to receive server's header position. need to be
   // here to not being clean
 
@@ -137,12 +136,14 @@ public class RamcastEndpoint extends RdmaEndpoint {
       int index = (int) wc.getWr_id();
       if (index >= verbCalls.updatePostIndexOffset) {
         if (logger.isDebugEnabled())
-          logger.debug("[{}/{}] deliver WRITE SIGNAL COMPLETION event", this.endpointId, index);
+          logger.trace("[{}/{}] deliver WRITE SIGNAL COMPLETION event", this.endpointId, index);
+        ByteBuffer buffer = verbCalls.updateBufs[index - verbCalls.updatePostIndexOffset];
+        dispatchSyncWriteCompletion(buffer);
         verbCalls.freeUpdate(index);
       } else {
-        ByteBuffer buffer = verbCalls.writeBufs[index];
         if (logger.isDebugEnabled())
           logger.debug("[{}/{}] deliver WRITE MESSAGE COMPLETION event", this.endpointId, index);
+        ByteBuffer buffer = verbCalls.writeBufs[index];
         verbCalls.freeWrite(index);
         dispatchWriteCompletion(buffer);
       }
@@ -209,7 +210,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
   // data should be in the form of a pair of <type> <value>: Integer 4 long 2
   protected boolean _writeSignal(long address, int lkey, Object... data) throws IOException {
     SVCPostSend postSend = verbCalls.freeUpdatePostSend.poll();
-    boolean signaled = unsignaledUpdateCount % config.getSignalInterval() == 0;
+    boolean signaled = unsignaledUpdateCount % config.getTimestampSignalInterval() == 0;
     if (postSend != null) {
       int index = (int) postSend.getWrMod(0).getWr_id();
       if (logger.isDebugEnabled())
@@ -243,6 +244,43 @@ public class RamcastEndpoint extends RdmaEndpoint {
     } else {
       if (logger.isDebugEnabled()) logger.debug("[{}/-1] don't have available postsend. Wait", this.endpointId);
       return false;
+    }
+  }
+
+  // data should be in the form of a pair of <type> <value>: Integer 4 long 2
+  protected int _writeTimestamp(int msgId, long address, int lkey, Object... data) throws IOException {
+    SVCPostSend postSend = verbCalls.freeUpdatePostSend.poll();
+    if (postSend != null) {
+      int index = (int) postSend.getWrMod(0).getWr_id();
+      if (logger.isDebugEnabled())
+        logger.debug("[{}/{}] perform WRITE SYNC TIMESTAMP to {} at address {} lkey {} values {}",
+                this.endpointId, index, this.node, address, lkey, data);
+
+      ByteBuffer updateBuffer = verbCalls.updateBufs[index - verbCalls.updatePostIndexOffset];
+      updateBuffer.clear();
+      int length = 0;
+      for (int i = 0; i < data.length; i++) {
+        length += putToBuffer(updateBuffer, (Class) data[i], data[++i]);
+      }
+
+      if (length > RamcastConfig.SIZE_SIGNAL - 4) {
+        throw new IOException("Buffer size of [" + length + "] is too big. Only allow " + (RamcastConfig.SIZE_SIGNAL - 4));
+      }
+      updateBuffer.putInt(RamcastConfig.SIZE_SIGNAL - 4, msgId);
+
+      postSend.getWrMod(0).getSgeMod(0).setLength(RamcastConfig.SIZE_SIGNAL);
+      postSend.getWrMod(0).getRdmaMod().setRemote_addr(address);
+      postSend.getWrMod(0).getRdmaMod().setRkey(lkey);
+
+      postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED | IbvSendWR.IBV_SEND_INLINE);
+      unsignaledUpdateCount = 1;
+      verbCalls.pendingUpdatePostSend.put(index, postSend);
+      postSend.execute();
+
+      return index;
+    } else {
+      if (logger.isDebugEnabled()) logger.debug("[{}/-1] don't have available postsend. Wait", this.endpointId);
+      return -1;
     }
   }
 
@@ -385,6 +423,13 @@ public class RamcastEndpoint extends RdmaEndpoint {
     if (logger.isDebugEnabled())
       logger.trace("dispatch WriteCompletion of buffer [{} {} {}]",
               buffer.getInt(0), buffer.getInt(4), buffer.getInt(8));
+  }
+
+  private void dispatchSyncWriteCompletion(ByteBuffer buffer) {
+    if (logger.isDebugEnabled())
+      logger.debug("dispatch SyncWriteCompletion of buffer [{} {} {}] last 4bytes {}",
+              buffer.getInt(0), buffer.getInt(4), buffer.getInt(8), buffer.getInt(buffer.capacity() - 4));
+    ((RamcastEndpointGroup) this.group).handleWriteComplete(this, buffer);
   }
 
   private void dispatchUnsignaledWriteCompletion(ByteBuffer buffer) {
@@ -534,34 +579,25 @@ public class RamcastEndpoint extends RdmaEndpoint {
   }
 
   public void send(ByteBuffer buffer) throws IOException {
-    while (!_send(buffer)) {
-      try {
-        Thread.sleep(0);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    while (!_send(buffer)) Thread.yield();
   }
 
   public void writeSignal(long address, int lkey, Object... values) throws IOException {
-    while (!_writeSignal(address, lkey, values)) {
-      try {
-        Thread.sleep(0);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+    while (!_writeSignal(address, lkey, values)) Thread.yield();
+  }
+
+  public int writeTimestamp(int msgId, long address, int lkey, Object... values) throws IOException {
+    int wrId = _writeTimestamp(msgId, address, lkey, values);
+    while (wrId == -1) {
+      Thread.yield();
+      wrId = _writeTimestamp(msgId, address, lkey, values);
     }
+    return wrId;
   }
 
   // FOR WRITE BENCH ONLY
   public void writeTestResponse(long address, int lkey, ByteBuffer buffer) throws IOException {
-    while (!_writeTestResponse(address, lkey, buffer)) {
-      try {
-        Thread.sleep(0);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    while (!_writeTestResponse(address, lkey, buffer)) Thread.yield();
   }
 
   public void writeMessage(ByteBuffer buffer) throws IOException {
@@ -571,13 +607,7 @@ public class RamcastEndpoint extends RdmaEndpoint {
     } else {
       unsignaledWriteCount += 1;
     }
-    while (!_writeMessage(buffer, signaled)) {
-      try {
-        Thread.sleep(0);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
+    while (!_writeMessage(buffer, signaled)) Thread.yield();
   }
 
   public void pollForData() {
@@ -588,42 +618,37 @@ public class RamcastEndpoint extends RdmaEndpoint {
       recvBuffer.position(start);
 
       int msgLength = recvBuffer.getInt(start + RamcastConfig.POS_LENGTH_BUFFER);
-      if (msgLength == 0) {
-        return;
-      }
+      if (msgLength == 0) return;
 
       long crc = recvBuffer.getLong(start + msgLength - RamcastConfig.SIZE_CHECKSUM);
-      if (crc == 0) {
-        return;
-      }
+      if (crc == 0) return;
 
       recvBuffer.position(start + RamcastConfig.SIZE_BUFFER_LENGTH);
       recvBuffer.limit(start + msgLength - RamcastConfig.SIZE_CHECKSUM);
 
-      long checksum = StringUtils.calculateCrc32(recvBuffer);
+      long checksum = 1;
+      // TODO: Do we need CRC?
+//      long checksum = StringUtils.calculateCrc32(recvBuffer);
       recvBuffer.clear();
 
       if (checksum != crc) {
         if (logger.isDebugEnabled())
-          logger.trace(
-                  "Message is not completed. Length {} Calculated CRC {} vs Read CRC {}. Buffer [{} {} {}]",
+          logger.trace("Message is not completed. Length {} Calculated CRC {} vs Read CRC {}. Buffer [{} {} {}]",
                   msgLength, checksum, crc, recvBuffer.getInt(start),
                   recvBuffer.getInt(start + 4), recvBuffer.getInt(start + 8));
         return;
       }
       if (logger.isDebugEnabled())
-        logger.debug(
-                "[{}] dispatch local recvBuffer at position {}, Length {} CRC {}, buffer [{} {} {}], calculated CRC {}, memory {}",
+        logger.trace("[{}] dispatch local recvBuffer at position {}, Length {} CRC {}, buffer [{} {} {}], calculated CRC {}, memory {}",
                 this.endpointId, this.sharedCellBlock.getTailOffset(), msgLength, crc,
                 recvBuffer.getInt(start), recvBuffer.getInt(start + 4), recvBuffer.getInt(start + 8),
                 checksum, this.sharedCellBlock);
 
-      RamcastMessage message =
-              new RamcastMessage(((ByteBuffer) recvBuffer
-                      .position(start + RamcastConfig.SIZE_BUFFER_LENGTH)
-                      .limit(start + RamcastConfig.SIZE_MESSAGE))
-                      .slice(),
-                      this.node, this.sharedCellBlock);
+      RamcastMessage message = new RamcastMessage(((ByteBuffer) recvBuffer
+              .position(start + RamcastConfig.SIZE_BUFFER_LENGTH)
+              .limit(start + RamcastConfig.SIZE_MESSAGE))
+              .slice(),
+              this.node, this.sharedCellBlock);
 
       // reset recvBuffer
       recvBuffer.clear();

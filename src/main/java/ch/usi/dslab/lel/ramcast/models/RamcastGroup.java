@@ -49,13 +49,23 @@ public class RamcastGroup {
   // get members of all group
   public static List<RamcastNode> getAllNodes() {
     return groupList.stream()
-        .map(RamcastGroup::getMembers)
-        .flatMap(List::stream)
-        .collect(Collectors.toList());
+            .map(RamcastGroup::getMembers)
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
   }
 
   public static int getQuorum(short groupId) {
     return groupMap.get((int) groupId).getFollowers();
+//    return groupMap.get((int) groupId).getFollowers();
+  }
+
+  public static int getTotalNodeCount() {
+    return groupList.stream().mapToInt(RamcastGroup::getNodeCount).sum();
+  }
+
+  public static void close() {
+    groupList = new ArrayList<>();
+    groupMap = new ConcurrentHashMap<>();
   }
 
   public int getLeaderId() {
@@ -73,10 +83,6 @@ public class RamcastGroup {
   public void removeNode(RamcastNode node) {
     nodeMap.remove(node.getNodeId());
     this.followers = 0;
-  }
-
-  public static int getTotalNodeCount() {
-    return groupList.stream().mapToInt(RamcastGroup::getNodeCount).sum();
   }
 
   public int getNodeCount() {
@@ -109,10 +115,5 @@ public class RamcastGroup {
   @Override
   public String toString() {
     return "[group " + this.groupId + "]";
-  }
-
-  public static void close() {
-    groupList = new ArrayList<>();
-    groupMap = new ConcurrentHashMap<>();
   }
 }

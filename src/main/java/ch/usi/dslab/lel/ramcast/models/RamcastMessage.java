@@ -76,6 +76,11 @@ public class RamcastMessage {
 
   private ByteBuffer serializedBuffer;
 
+  // this is processed by the leader, should not in the buffer
+  private int pendingTimestampUpdates = 0; // used by leader
+  private int completedTimestampUpdates = 0; // used by leader
+
+
   public RamcastMessage(ByteBuffer message, int[] groups) {
     this.message = message;
     this.message.clear();
@@ -138,7 +143,9 @@ public class RamcastMessage {
       this.serializedBuffer.putShort(this.slots[i]);
     }
     int pos = this.serializedBuffer.position();
-    long crc = StringUtils.calculateCrc32((ByteBuffer) this.serializedBuffer.position(0).limit(pos));
+//    long crc = StringUtils.calculateCrc32((ByteBuffer) this.serializedBuffer.position(0).limit(pos));
+    // TODO: Do we need CRC?
+    long crc = 1;
     this.serializedBuffer.clear();
     this.serializedBuffer.putLong(pos, crc);
     return this.serializedBuffer;
@@ -206,7 +213,7 @@ public class RamcastMessage {
       return this.buffer.getShort(getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
     } catch (Exception e) {
       e.printStackTrace();
-      logger.error("message {},bufferCap={} limit={},  getPosSlots()={}, getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index={}", this, this.buffer.capacity(), this.buffer.limit(), getPosSlots(), getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index);
+      logger.error("{} message {},bufferCap={} limit={},  getPosSlots()={}, getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index={}", this, this.buffer.capacity(), this.buffer.limit(), getPosSlots(), (getPosSlots() + RamcastConfig.SIZE_MSG_OFFSET * index));
       throw e;
     }
   }
@@ -410,5 +417,21 @@ public class RamcastMessage {
       }
     }
     return true;
+  }
+
+  public void addPendingTimestampUpdate() {
+    this.pendingTimestampUpdates++;
+  }
+
+  public void addCompleteTimestampUpdate() {
+    this.completedTimestampUpdates++;
+  }
+
+  public int getPendingTimestampUpdates() {
+    return pendingTimestampUpdates;
+  }
+
+  public int getCompletedTimestampUpdates() {
+    return completedTimestampUpdates;
   }
 }

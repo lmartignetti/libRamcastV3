@@ -8,33 +8,41 @@ from datetime import datetime
 
 import common
 
-NUM_RUNS = 1
+NUM_RUNS = 5
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
-NUM_DEST = [2]
-NUM_CLIENT_PER_DESTINATION = [1]
+NUM_DEST = [1]
+NUM_CLIENT_PER_DESTINATION = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+NUM_CLIENT_PER_DESTINATION = [3]
 
-PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
-PACKAGE_SIZE = [64]
+PACKAGE_SIZE = [74, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+PACKAGE_SIZE = [74]
 
 DURATION = 60
 WARMUP = 20
 
 PROFILING = False
+DEBUG = True
 DEBUG = False
+DELAY = True
 DELAY = False
 
 # RDMA config
-CONF_QUEUE_LENGTH = 8
+CONF_QUEUE_LENGTH = 64
 CONF_NUM_PROCESSES = NUM_PROCESSES
 CONF_SERVICE_TIMEOUT = 1
 CONF_POLLING = True
 CONF_MAX_INLINE = 250
 CONF_PORT = 9000
-CONF_SIGNAL_INTERVAL = 8
+CONF_SIGNAL_INTERVAL = 64
+CONF_TIMESTAMP_SIGNAL_INTERVAL = 1
 
 if PROFILING: DURATION = 9999
+
+COLOCATE_PROCESS = NUM_PROCESSES - 1  # follower
+COLOCATE_PROCESS = -1  # no co location
+COLOCATE_PROCESS = 0  # leader
 
 
 def run():
@@ -55,6 +63,7 @@ if DEBUG:
     java_cmd = java_cmd + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 else:
     log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/logback.xml'
+    # java_cmd = java_cmd + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005"
 
 java_cmd = java_cmd + " -Dlogback.configurationFile=" + log4j_conf
 java_cmd = java_cmd + common.JAVA_CLASSPATH
@@ -69,6 +78,7 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
     config["polling"] = CONF_POLLING
     config["maxinline"] = CONF_MAX_INLINE
     config["signalInterval"] = CONF_SIGNAL_INTERVAL
+    config["timestampSignalInterval"] = CONF_TIMESTAMP_SIGNAL_INTERVAL
     config["debug"] = DEBUG
     config["delay"] = DELAY
     available_nodes = common.RDMA_NODES
@@ -105,8 +115,6 @@ def gen_config(num_process_per_group, num_dest, num_client_per_dest, config_file
     if remaining_clients > 0:
         clients_per_node = int(math.ceil(remaining_clients * 1.0 / len(client_nodes)))
         # then fill up clients to remaining nodes
-
-
 
         while j < remaining_clients:
             config["group_members"].append({
@@ -183,7 +191,7 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
                "-gid", g, "-nid", p, "-cid", i,
                "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",
                WARMUP * 1000]
-        if p == num_process_per_group - 1 and g < num_destinations:
+        if p == COLOCATE_PROCESS and g < num_destinations:
             # the last process of the group will be client of that group for measuring latency
             cmd += ["-df", str(g), "-dc 1", "-isClient", "1"]
             clients_used += 1
@@ -198,7 +206,7 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     i = num_process_per_group * num_destinations
     dest_from = 0
     for j in range(0, num_destinations):
-        for k in range(1, num_clients):  # already provide 1 client in the group
+        for k in range(0, num_clients - clients_used):  # already provide 1 client in the group
             cmds[i][1] = cmds[i][1] + ' ' + ' '.join(["-df", str(dest_from), "-dc", "1", "-isClient", "1"])
             i += 1
         dest_from += 1
@@ -210,9 +218,10 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     # start gatherer
     cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
            "throughput", "client_overall", num_clients,
-           "latency", "client_overall", num_destinations,
-           "latencydistribution", "client_overall", num_destinations,
            ]
+    if COLOCATE_PROCESS >= 0:
+        cmd += ["latency", "client_overall", num_destinations, "latencydistribution", "client_overall",
+                num_destinations]
 
     cmdString = ' '.join([str(val) for val in cmd])
     common.localcmd(cmdString)

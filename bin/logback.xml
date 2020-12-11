@@ -28,7 +28,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="ch.usi.dslab.bezerra.sense.DataGatherer" additivity="false" level="info">
+    <logger name="ch.usi.dslab.bezerra.sense.DataGatherer" additivity="debug" level="info">
         <appender-ref ref="STDOUT"/>
     </logger>
 

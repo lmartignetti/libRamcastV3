@@ -117,6 +117,18 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     }
   }
 
+  public void handleWriteComplete(RamcastEndpoint endpoint, ByteBuffer buffer) {
+    if (!this.agent.isLeader()) return;
+    if (logger.isDebugEnabled())
+      logger.debug("Pending messages: {}. Completed sync write ts for msg: {}", this.messageProcessor.getProcessing(), buffer.getInt(buffer.capacity() - 4));
+    for (RamcastMessage message : this.messageProcessor.getProcessing()) {
+      if (message.getId() == buffer.getInt(buffer.capacity() - 4)) {
+        message.addCompleteTimestampUpdate();
+        return;
+      }
+    }
+  }
+
   public void handleReceive(RamcastEndpoint endpoint, ByteBuffer buffer) {
     if (customHandler != null) customHandler.handleReceive(buffer);
   }
@@ -215,15 +227,17 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         if (endpoint.getNode().isLeader() || endpoint.getGroupId() == agent.getGroupId()) {
           if (endpoint.getNode().equals(agent.getNode())) { // if the node is writing to itself -> do local
             if (logger.isDebugEnabled())
-              logger.trace(
-                      "[{}] group [{}] updates ts value [{}/{}] for its local buffer on {} at index {} epi {}",
+              logger.trace("[{}] group [{}] updates ts value [{}/{}] for its local buffer on {} at index {} epi {}",
                       message.getId(), agent.getGroupId(), round, clock, endpoint.getNode(), thisGroupIndex, endpoint.getEndpointId());
             timestampBlock.writeLocalTs(message, thisGroupIndex, round, clock);
           } else {
             if (logger.isDebugEnabled())
               logger.trace("[{}] group [{}] updates ts value [{}/{}] on {} at index {} epi {}",
                       message.getId(), agent.getGroupId(), round, clock, endpoint.getNode(), thisGroupIndex, endpoint.getEndpointId());
-            writeTimestamp(endpoint, message, thisGroupIndex, round, clock);
+            if (message.getGroupCount() == 1) {
+              writeSyncTimestamp(endpoint, message, thisGroupIndex, round, clock);
+              message.addPendingTimestampUpdate();
+            } else writeTimestamp(endpoint, message, thisGroupIndex, round, clock);
           }
         }
       }
@@ -234,6 +248,12 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
     RamcastTsMemoryBlock timestampBlock = endpoint.getRemoteTimeStampBlock();
     long address = timestampBlock.getNodeTimestampAddress(message, groupIndex);
     endpoint.writeSignal(address, timestampBlock.getLkey(), Integer.TYPE, round, Integer.TYPE, clock);
+  }
+
+  public void writeSyncTimestamp(RamcastEndpoint endpoint, RamcastMessage message, int groupIndex, int round, int clock) throws IOException {
+    RamcastTsMemoryBlock timestampBlock = endpoint.getRemoteTimeStampBlock();
+    long address = timestampBlock.getNodeTimestampAddress(message, groupIndex);
+    endpoint.writeTimestamp(message.getId(), address, timestampBlock.getLkey(), Integer.TYPE, round, Integer.TYPE, clock);
   }
 
   // for unit test
@@ -264,7 +284,7 @@ public class RamcastEndpointGroup extends RdmaEndpointGroup<RamcastEndpoint> {
         if (logger.isDebugEnabled())
           logger.debug("[{}] group [{}] propagate ts value [{}/{}] on {} at index {} epi {}",
                   message.getId(), agent.getGroupId(), round, clock, endpoint.getNode(), groupIndex, endpoint.getEndpointId());
-        writeTimestamp(endpoint, message, groupIndex, round, clock);
+        writeSyncTimestamp(endpoint, message, groupIndex, round, clock);
       }
     }
   }

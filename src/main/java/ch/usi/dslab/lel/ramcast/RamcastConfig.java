@@ -13,17 +13,14 @@ import java.util.Iterator;
 
 public class RamcastConfig {
 
-  public static boolean ENABLE_LEADER_ELECTION = false;
+  public static final int SIGNAL_TYPE_TIMESTAMP = 1;
+  public static final int SIGNAL_TYPE_AKC = 2;
   public static final int MSG_HS_C1 = -1; // handshake msg step 1 from client
   public static final int MSG_HS_S1 = -2; // handshake msg step 1 from server
   public static final int MSG_HS_C_GET_WRITE =
-      -11; // handshake msg from client to get write permission
+          -11; // handshake msg from client to get write permission
   public static final int MSG_HS_S_GET_WRITE =
-      -12; // handshake msg from server reply to to get write permission
-
-  // total size of a message, includes payload and overhead
-//  public static final int SIZE_MESSAGE = 1024;
-  public static int SIZE_MESSAGE = 98;
+          -12; // handshake msg from server reply to to get write permission
   // a 64 bits value of the checksum
   public static final int SIZE_CHECKSUM = 8;
   // length of the length field of buffer that is being transmit
@@ -32,16 +29,11 @@ public class RamcastConfig {
 //  public static final int SIZE_PAYLOAD = SIZE_MESSAGE - SIZE_BUFFER_LENGTH;
   //  total size of timestamp, includes timestamp, ballot, value, status (delivered, pending)
   public static final int SIZE_TIMESTAMP = 10;
-  // total size of remote-head value, include value, msgId
-  public static  int SIZE_REMOTE_HEAD = 8;
   // total size of ack message, including ACK VALUE, BALLOT
   public static final int SIZE_ACK = 8;
   public static final int SIZE_ACK_VALUE = 4;
-  // maximum size of signal package, for acks, update head, or ts
-  public static  int SIZE_SIGNAL = 16;
   // size for FUO value, at the end of the timestamp buffer
   public static final int SIZE_FUO = 0;
-
   // Message content
   // ID
   public static final int SIZE_MSG_ID = 4;
@@ -50,7 +42,6 @@ public class RamcastConfig {
   public static final int SIZE_MSG_GROUP = 2;
   public static final int SIZE_MSG_OFFSET = 2;
   public static final int SIZE_MSG_SLOT = 2;
-
   // positions in a message
   // total size of ack message, including ACK, BALLOT
 //  public static final int POS_CHECKSUM = 0;
@@ -59,9 +50,14 @@ public class RamcastConfig {
   public static final int ROLE_BOTH = 3;
   public static final int ROLE_CLIENT = 1;
   public static final int ROLE_SERVER = 2;
-
-
-
+  public static boolean ENABLE_LEADER_ELECTION = false;
+  // total size of a message, includes payload and overhead
+//  public static final int SIZE_MESSAGE = 1024;
+  public static int SIZE_MESSAGE = 98;
+  // total size of remote-head value, include value, msgId
+  public static int SIZE_REMOTE_HEAD = 8;
+  // maximum size of signal package, for acks, update head, or ts
+  public static int SIZE_SIGNAL = 12;
   public static boolean LOG_ENABLED = true; // flag for logging
   public static boolean DELAY = false; // flag for logging
   private static RamcastConfig[] instances;
@@ -70,13 +66,15 @@ public class RamcastConfig {
   private int queueLength;
   private int maxinline;
   private int signalInterval;
+  private int timestampSignalInterval;
   private boolean polling;
   private int groupCount;
   private int nodePerGroup = 1;
   private int reservedSize;
   private int shadowGroupCount;
 
-  private RamcastConfig() {}
+  private RamcastConfig() {
+  }
 
   public static RamcastConfig getInstance() {
     return getInstance(0);
@@ -150,6 +148,10 @@ public class RamcastConfig {
     this.signalInterval = signalInterval;
   }
 
+  public int getTimestampSignalInterval() {
+    return timestampSignalInterval;
+  }
+
   public int getReservedSize() {
     return reservedSize;
   }
@@ -184,6 +186,9 @@ public class RamcastConfig {
       }
       if (config.containsKey("maxinline")) {
         this.maxinline = getJSInt(config, "maxinline");
+      }
+      if (config.containsKey("timestampSignalInterval")) {
+        this.timestampSignalInterval = getJSInt(config, "timestampSignalInterval");
       }
 
       // ===========================================

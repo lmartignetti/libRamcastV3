@@ -17,8 +17,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class RamcastEndpointVerbCall {
   private static final Logger logger = LoggerFactory.getLogger(RamcastEndpoint.class);
 
-  protected final int updatePostIndexOffset =
-      100; // wr_id of the update post should be >> wr_id of the other. for differentiation
+  protected final int updatePostIndexOffset = 100; // wr_id of the update post should be >> wr_id of the other. for differentiation
 
   protected ByteBuffer[] recvBufs;
   protected ByteBuffer[] sendBufs;
@@ -84,7 +83,7 @@ public class RamcastEndpointVerbCall {
 
     // we use only one memory buffer for RDMA verbs send/recv/read/write and update
     ByteBuffer dataBuffer =
-        ByteBuffer.allocateDirect(packageSize * queueLength * 4 + queueLength * signalSize + tsBlockSize);
+            ByteBuffer.allocateDirect(packageSize * queueLength * 4 + queueLength * signalSize + tsBlockSize);
     /* Only do one memory registration with the IB card. */
     dataMr = endpoint.registerMemory(dataBuffer).execute().free().getMr();
 
@@ -119,7 +118,7 @@ public class RamcastEndpointVerbCall {
     int readTsBufferOffset = updateBufferOffset + (queueLength * signalSize);
     dataBuffer.position(readTsBufferOffset);
     dataBuffer.limit(
-        dataBuffer.position() + tsBlockSize);
+            dataBuffer.position() + tsBlockSize);
     readTsBuf = dataBuffer.slice();
     readTsCall = setupReadTsTask();
 
