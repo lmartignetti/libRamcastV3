@@ -1,0 +1,15 @@
+# Install dependendecies
+
+libRamCastV3 is a Maven project, therefore you should have Java and Maven installed first.
+
+There is but one dependency: libsense. The libsense library has library netwrapper in turn as dependency. First we install the libraries on the local maven cache, then we compile libRamCastV3.
+
+- netwrapper: git clone https://bitbucket.org/kdubezerra/netwrapper.git
+mvn install
+
+- libsense: git clone https://bitbucket.org/kdubezerra/sense.git
+mvn install
+
+- libRamCastV3: git clone https://github.com/longle255/libRamcastV3.git
+mvn clean install -DskipTests
+

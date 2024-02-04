@@ -47,7 +47,7 @@ if ENV_CLUSTER:
     RDMA_NODES = cluster_noderange(1, 8)
     REMOTE_ENV = " LD_LIBRARY_PATH=/home/long/.local/lib:/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib LD_PRELOAD=/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib/libevamcast.so:/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib/libevmcast.so"
     PATH_PROFILING = '/home/long/softwares/YourKit-JavaProfiler-2019.8/bin/linux-x86-64/libyjpagent.so'
-    PATH_GLOBAL_HOME = '/home/long/apps/ScalableSMR'
+    PATH_GLOBAL_HOME = 'home/lorenzo'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
     RDMA_NODES = emulab_noderange(1, 3)
@@ -58,12 +58,12 @@ else:
     REMOTE_ENV = ""
     PATH_PROFILING = ''
     RDMA_NODES = cluster_noderange(1, 15)
-    PATH_GLOBAL_HOME = '/Users/longle/Documents/Workspace/PhD/ScalableSMR'
+    PATH_GLOBAL_HOME = '/Users/usi/Documents/GitHub'
 
 ZK_NODES = ['192.168.3.9', '192.168.3.10', '192.168.3.11']
 ZK_HOST = '192.168.3.9:2181'
 
-GATHERER_HOST = "192.168.3.2" if ENV_CLUSTER else "10.10.1.1"
+GATHERER_HOST = "192.168.4.2" if ENV_CLUSTER else "10.10.1.1"
 GATHERER_PORT = 9999
 
 PATH_LIBRAMCAST_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/libRamcastV3')
@@ -114,6 +114,7 @@ class Command(object):
             logging.debug('Thread started')
             run_args = shlex.split(self.cmd)
             self.process = subprocess.Popen(run_args)
+            print('\nBefore:\n' + str(self.process.pid))
             self.process.communicate()
             logging.debug('Thread finished')
 
@@ -125,6 +126,8 @@ class Command(object):
             logging.debug('Terminating process')
             self.process.terminate()
             thread.join()
+
+        print('\nAfter:\n' + str(self.process.returncode))
         return self.process.returncode
 
 
@@ -157,7 +160,7 @@ def localcmd(cmdstring, timeout=None):
 
 
 def sshcmdbg(node, cmdstring):
-    node = re.sub(r'\.4\.', '.3.', node)
+    # node = re.sub(r'\.4\.', '.3.', node)
     cmd = "ssh -o StrictHostKeyChecking=no " + node + REMOTE_ENV + " \"" + cmdstring + "\" &"
     logging.debug("sshcmdbg: %s", cmd)
     os.system(cmd)

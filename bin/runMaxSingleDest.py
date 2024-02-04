@@ -47,7 +47,7 @@ def run():
 
 # =======================================================================================================================
 
-java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -Xms3g -Xmx3g"
+java_cmd = "java -XX:SurvivorRatio=15 -Xms3g -Xmx3g"
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
 if DEBUG:
@@ -167,7 +167,7 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
         os.system("{}  {} {}".format(sync_script, config_dir, str(len(common.RDMA_NODES))))
         time.sleep(3)
 
-    print available_nodes
+    print(available_nodes)
 
     i = 0
     p = 0
@@ -202,7 +202,7 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
         dest_from += 1
 
     for cmd in cmds:
-        print cmd[0], cmd[1]
+        print(cmd[0], cmd[1])
         common.sshcmdbg(cmd[0], cmd[1])
 
     # start gatherer
@@ -217,11 +217,11 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
 
     common.localcmd(common.APP_CLEANER)
     time.sleep(1)
-    print "===================================\n          Throughput              \n==================================="
+    print("===================================\n          Throughput              \n===================================")
     common.localcmd("cat " + log_dir + "/throughput_client_overall_aggregate.log")
-    print "===================================\n          Latency                 \n==================================="
+    print("===================================\n          Latency                 \n===================================")
     common.localcmd("cat " + log_dir + "/latency_client_overall_average.log")
-    print "==================================="
+    print("===================================")
 
 
 for i in range(0, NUM_RUNS):
