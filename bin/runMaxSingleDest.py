@@ -11,14 +11,14 @@ import common
 NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
-NUM_PROCESSES = 3
+NUM_PROCESSES = 2
 NUM_DEST = [1]
 NUM_CLIENT_PER_DESTINATION = [1]
 
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [98]
 
-DURATION = 60
+DURATION = 10
 WARMUP = 20
 
 PROFILING = False
@@ -57,6 +57,7 @@ else:
     log4j_conf = common.PATH_LIBRAMCAST_HOME + '/bin/logback.xml'
 
 java_cmd = java_cmd + " -Dlogback.configurationFile=" + log4j_conf
+java_cmd = java_cmd + ' -Djava.library.path=/usr/local/lib'
 java_cmd = java_cmd + common.JAVA_CLASSPATH
 
 
@@ -162,8 +163,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
 
     if common.ENV_EMULAB:
         # need to sync this sysConfig with other instances
-        sync_script = '/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh'
-        config_dir = '/users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs'
+        sync_script = '/users/martilo/libRamcastV3/bin/emulab/sync-code.sh'
+        config_dir = '/users/martilo/libRamcastV3/bin/systemConfigs'
         os.system("{}  {} {}".format(sync_script, config_dir, str(len(common.RDMA_NODES))))
         time.sleep(3)
 
@@ -206,7 +207,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
         common.sshcmdbg(cmd[0], cmd[1])
 
     # start gatherer
-    cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    # cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    cmd = [java_cmd, common.CLASS_GATHERER, common.GATHERER_PORT, log_dir,
            "throughput", "client_overall", num_clients,
            "latency", "client_overall", num_destinations,
            "latencydistribution", "client_overall", num_destinations,

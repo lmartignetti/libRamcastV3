@@ -11,7 +11,7 @@ ZKNODES = common.ZK_NODES
 user = getpass.getuser()
 
 if len(sys.argv) > 1:
-    print "Killing runAllOnce.py"
+    print("Killing runAllOnce.py")
     common.localcmd("pkill -9 runAllOnce.py")
 
 common.localcmd('rm -rf "/home/long/apps/ScalableSMR/zookeeper/data/1/version-2"  "/home/long/apps/ScalableSMR/zookeeper/data/2/version-2" "/home/long/apps/ScalableSMR/zookeeper/data/3/version-2"')
