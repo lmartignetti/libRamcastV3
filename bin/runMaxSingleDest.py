@@ -11,7 +11,7 @@ import common
 NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
-NUM_PROCESSES = 3
+NUM_PROCESSES = 2
 NUM_DEST = [1]
 NUM_CLIENT_PER_DESTINATION = [1]
 
@@ -47,7 +47,7 @@ def run():
 
 # =======================================================================================================================
 
-java_cmd = "java -XX:SurvivorRatio=15 -Xms3g -Xmx3g"
+java_cmd = "java -XX:SurvivorRatio=15 -Xms4g -Xmx4g"
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
 if DEBUG:
@@ -206,7 +206,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
         common.sshcmdbg(cmd[0], cmd[1])
 
     # start gatherer
-    cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    # cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    cmd = [java_cmd, common.CLASS_GATHERER, common.GATHERER_PORT, log_dir,
            "throughput", "client_overall", num_clients,
            "latency", "client_overall", num_destinations,
            "latencydistribution", "client_overall", num_destinations,

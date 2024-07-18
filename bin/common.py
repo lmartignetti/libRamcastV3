@@ -44,10 +44,10 @@ def emulab_noderange(first, last):
 
 
 if ENV_CLUSTER:
-    RDMA_NODES = cluster_noderange(1, 8)
-    REMOTE_ENV = " LD_LIBRARY_PATH=/home/long/.local/lib:/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib LD_PRELOAD=/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib/libevamcast.so:/home/long/apps/ScalableSMR/libjmcast/libmcast/build/local/lib/libevmcast.so"
+    RDMA_NODES = cluster_noderange(1, 4)
+    REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
     PATH_PROFILING = '/home/long/softwares/YourKit-JavaProfiler-2019.8/bin/linux-x86-64/libyjpagent.so'
-    PATH_GLOBAL_HOME = 'home/lorenzo'
+    PATH_GLOBAL_HOME = '/home/lorenzo'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
     RDMA_NODES = emulab_noderange(1, 3)
@@ -78,11 +78,8 @@ PATH_NETWRAPPER_CP = os.path.normpath(PATH_NETWRAPPER_HOME + '/target/classes')
 PATH_SENSE_HOME = os.path.normpath(PATH_GLOBAL_HOME + '/sense')
 PATH_SENSE_CP = os.path.normpath(PATH_SENSE_HOME + '/target/classes')
 
-DEPENDENCIES_DIR = os.path.normpath(PATH_GLOBAL_HOME + '/dependencies/')
-DEPENDENCIES_JARS = ['logback-core-1.2.3.jar', 'logback-classic-1.2.3.jar', 'slf4j-api-1.7.21.jar',
-                     'hamcrest-core-1.3.jar', 'junit-4.13-rc-2.jar', 'json-simple-1.1.jar', 'commons-cli-1.3.1.jar',
-                     'commons-math3-3.2.jar', 'javatuples-1.2.jar', 'kryo-serializers-0.42.jar',
-                     'kryo-shaded-4.0.0.jar', 'objenesis-2.1.jar', 'minlog-1.3.0.jar']
+DEPENDENCIES_DIR = os.path.normpath(PATH_GLOBAL_HOME + '/.m2/repository/')
+DEPENDENCIES_JARS = ['ch/qos/logback/logback-core/1.2.3/logback-core-1.2.3.jar', 'ch/qos/logback/logback-classic/1.2.3/logback-classic-1.2.3.jar', 'org/slf4j/slf4j-api/1.7.21/slf4j-api-1.7.21.jar', 'org/hamcrest/hamcrest-core/1.3/hamcrest-core-1.3.jar', 'junit/junit/4.13-rc-2/junit-4.13-rc-2.jar', 'com/googlecode/json-simple/json-simple/1.1/json-simple-1.1.jar', 'commons-cli/commons-cli/1.3.1/commons-cli-1.3.1.jar', 'org/apache/commons/commons-math3/3.2/commons-math3-3.2.jar', 'org/javatuples/javatuples/1.2/javatuples-1.2.jar', 'de/javakaffee/kryo-serializers/0.42/kryo-serializers-0.42.jar', 'com/esotericsoftware/kryo-shaded/4.0.0/kryo-shaded-4.0.0.jar', 'org/objenesis/objenesis/2.1/objenesis-2.1.jar', 'com/esotericsoftware/minlog/1.3.0/minlog-1.3.0.jar', 'org/apache/logging/log4j/log4j-api/2.0-rc1/log4j-api-2.0-rc1.jar', 'org/apache/logging/log4j/log4j-core/2.0-rc1/log4j-core-2.0-rc1.jar', 'com/ibm/disni/disni/2.1/disni-2.1.jar']
 
 DEPENDENCIES = ':'.join([DEPENDENCIES_DIR + '/' + jar for jar in DEPENDENCIES_JARS])
 _class_path = [PATH_NETWRAPPER_CP, PATH_SENSE_CP, PATH_LIBDISNI_CP, PATH_LIBRAMCAST_CP, DEPENDENCIES]
