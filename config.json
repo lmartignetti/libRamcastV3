@@ -1,0 +1,54 @@
+{
+  "local": {
+    "id": 0,
+    "hostname": "apt133.apt.emulab.net",
+    "ip": "10.10.1.1"
+  },
+  "remotes": [
+    {
+      "id": 1,
+      "hostname": "apt144.apt.emulab.net",
+      "ip": "10.10.1.2"
+    },
+    {
+      "id": 2,
+      "hostname": "apt129.apt.emulab.net",
+      "ip": "10.10.1.3"
+    },
+    {
+      "id": 3,
+      "hostname": "apt132.apt.emulab.net",
+      "ip": "10.10.1.4"
+    },
+    {
+      "id": 4,
+      "hostname": "apt131.apt.emulab.net",
+      "ip": "10.10.1.5"
+    },
+    {
+      "id": 5,
+      "hostname": "apt136.apt.emulab.net",
+      "ip": "10.10.1.6"
+    },
+    {
+      "id": 6,
+      "hostname": "apt152.apt.emulab.net",
+      "ip": "10.10.1.7"
+    },
+    {
+      "id": 7,
+      "hostname": "apt141.apt.emulab.net",
+      "ip": "10.10.1.8"
+    },
+    {
+      "id": 8,
+      "hostname": "apt158.apt.emulab.net",
+      "ip": "10.10.1.9"
+    },
+    {
+      "id": 9,
+      "hostname": "apt153.apt.emulab.net",
+      "ip": "10.10.1.10"
+    }
+  ]
+}

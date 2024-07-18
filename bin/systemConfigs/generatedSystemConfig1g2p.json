@@ -1,37 +1,37 @@
 {
-    "queueLength": 8,
-    "zkHost": "192.168.3.9:2181",
-    "nodePerGroup": 2,
-    "servicetimeout": 1,
-    "polling": true,
-    "maxinline": 250,
-    "signalInterval": 8,
-    "debug": false,
-    "delay": false,
+    "maxinline": 250, 
+    "nodePerGroup": 2, 
+    "servicetimeout": 1, 
+    "zkHost": "192.168.3.9:2181", 
     "group_members": [
         {
-            "gid": 0,
-            "nid": 0,
-            "port": 9000,
-            "host": "192.168.4.1"
-        },
+            "host": "node1", 
+            "gid": 0, 
+            "port": 9000, 
+            "nid": 0
+        }, 
         {
-            "gid": 0,
-            "nid": 1,
-            "port": 9000,
-            "host": "192.168.4.3"
-        },
+            "host": "node2", 
+            "gid": 0, 
+            "port": 9000, 
+            "nid": 1
+        }, 
         {
-            "gid": 1,
-            "nid": 0,
-            "port": 9001,
-            "host": "192.168.4.4"
-        },
+            "host": "node3", 
+            "gid": 1, 
+            "port": 9001, 
+            "nid": 0
+        }, 
         {
-            "gid": 1,
-            "nid": 1,
-            "port": 9002,
-            "host": "192.168.4.4"
+            "host": "node3", 
+            "gid": 1, 
+            "port": 9002, 
+            "nid": 1
         }
-    ]
+    ], 
+    "signalInterval": 8, 
+    "queueLength": 8, 
+    "delay": false, 
+    "polling": true, 
+    "debug": false
 }

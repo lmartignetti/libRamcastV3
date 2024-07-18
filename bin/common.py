@@ -24,7 +24,7 @@ ENV_EMULAB = False
 ENV_LOCALHOST = False
 
 USERNAME = get_username()
-if USERNAME == 'lel':
+if USERNAME == 'martilo':
     ENV_EMULAB = True
 elif socket.gethostname()[:4] == 'node':
     ENV_CLUSTER = True
@@ -50,10 +50,10 @@ if ENV_CLUSTER:
     PATH_GLOBAL_HOME = '/home/lorenzo'
 elif ENV_EMULAB:
     REMOTE_ENV = " LD_LIBRARY_PATH=/usr/local/lib"
-    RDMA_NODES = emulab_noderange(1, 3)
+    RDMA_NODES = emulab_noderange(1, 4)
     # RDMA_NODES = ['node1', 'node1', 'node2']
     PATH_PROFILING = ''  # no profiling on emulab
-    PATH_GLOBAL_HOME = '/users/lel/apps/libramcast'
+    PATH_GLOBAL_HOME = '/users/martilo'
 else:
     REMOTE_ENV = ""
     PATH_PROFILING = ''

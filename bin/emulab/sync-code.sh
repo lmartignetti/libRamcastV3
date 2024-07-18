@@ -12,7 +12,7 @@ if [ $# -gt 2 ] || [ $# -lt 1 ]; then
 fi
 
 if [ $# = "1" ]; then
-    DIR="/users/lel/apps/libramcast/"
+    DIR="/users/martilo/"
     NODE_COUNT=$1
 else
     DIR=$1
@@ -25,7 +25,7 @@ for nid in `seq 0 $NODE_COUNT`; do
         echo "Ignoring control nid: $nid"
     else
 #        echo "Syncing to: node$nid"
-        rsync -q -e "ssh -o StrictHostKeyChecking=no" -rav --exclude-from=/users/lel/apps/libramcast/libRamcastV3/bin/emulab/.deployIgnore $DIR/* node$nid:$DIR/ &
+        rsync -q -e "ssh -o StrictHostKeyChecking=no" -rav --exclude-from=/users/martilo/libRamcastV3/bin/emulab/.deployIgnore $DIR/* node$nid:$DIR/ &
     fi
 #    echo "========================================"
 done

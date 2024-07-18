@@ -162,8 +162,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
 
     if common.ENV_EMULAB:
         # need to sync this sysConfig with other instances
-        sync_script = '/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh'
-        config_dir = '/users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs'
+        sync_script = '/users/martilo/libRamcastV3/bin/emulab/sync-code.sh'
+        config_dir = '/users/martilo/libRamcastV3/bin/systemConfigs'
         os.system("{}  {} {}".format(sync_script, config_dir, str(len(common.RDMA_NODES))))
         time.sleep(3)
 
