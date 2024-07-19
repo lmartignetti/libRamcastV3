@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Semaphore;
+import java.util.Random;
 
 public class BenchAgent {
   private static final Logger logger = LoggerFactory.getLogger(BenchAgent.class);
@@ -58,6 +59,8 @@ public class BenchAgent {
   private long startTime;
 
   private boolean isRunning = true;
+
+  private Random randomGenerator = new Random();
 
   private MessageDeliveredCallback onDeliverAmcast =
           new MessageDeliveredCallback() {
@@ -204,7 +207,11 @@ public class BenchAgent {
       while (buffer.remaining() > 0) buffer.put((byte) 1);
 
       List<RamcastGroup> dest = new ArrayList<>();
-      for (int i = 0; i < destinationCount; i++) {
+      int tempNumDestinations = randomGenerator.nextInt(10000);
+      if(tempNumDestinations > 8928) tempNumDestinations = 1;
+      else if( tempNumDestinations > 1056) tempNumDestinations = 2;
+      else tempNumDestinations = 3;
+      for (int i = 0; i < tempNumDestinations; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 
@@ -253,14 +260,18 @@ public class BenchAgent {
       int payloadSize = RamcastConfig.SIZE_MESSAGE - RamcastMessage.calculateOverhead(destinationCount);
       if (destinationCount == 4) payloadSize -= 128;
       if (destinationCount == 8) payloadSize -= 230;
-//      int payloadSize = 16;
+      payloadSize = RamcastConfig.SIZE_MESSAGE;
 
       ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
       buffer.putInt(clientId);
       while (buffer.remaining() > 0) buffer.put((byte) 1);
 
       List<RamcastGroup> dest = new ArrayList<>();
-      for (int i = 0; i < destinationCount; i++) {
+      int tempNumDestinations = randomGenerator.nextInt(10000);
+      if(tempNumDestinations > 8928) tempNumDestinations = 1;
+      else if( tempNumDestinations > 1056) tempNumDestinations = 2;
+      else tempNumDestinations = 3;
+      for (int i = 0; i < tempNumDestinations; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 
