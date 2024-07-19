@@ -1,6 +1,6 @@
 {
-    "maxinline": 64, 
-    "nodePerGroup": 3, 
+    "maxinline": 250, 
+    "nodePerGroup": 1, 
     "servicetimeout": 1, 
     "zkHost": "192.168.3.9:2181", 
     "group_members": [
@@ -12,54 +12,48 @@
         }, 
         {
             "host": "node2", 
-            "gid": 0, 
+            "gid": 1, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node3", 
-            "gid": 0, 
+            "gid": 2, 
             "port": 9000, 
-            "nid": 2
+            "nid": 0
         }, 
         {
             "host": "node4", 
-            "gid": 1, 
+            "gid": 3, 
             "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node5", 
-            "gid": 1, 
+            "gid": 4, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node6", 
-            "gid": 1, 
+            "gid": 5, 
             "port": 9000, 
-            "nid": 2
+            "nid": 0
         }, 
         {
             "host": "node7", 
-            "gid": 2, 
+            "gid": 6, 
             "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node8", 
-            "gid": 2, 
-            "port": 9000, 
-            "nid": 1
-        }, 
-        {
-            "host": "node8", 
-            "gid": 2, 
+            "gid": 7, 
             "port": 9001, 
-            "nid": 2
+            "nid": 0
         }
     ], 
-    "signalInterval": 4, 
+    "signalInterval": 8, 
     "queueLength": 8, 
     "delay": false, 
     "polling": true, 

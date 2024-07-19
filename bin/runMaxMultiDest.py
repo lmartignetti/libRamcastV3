@@ -51,7 +51,7 @@ def run():
 
 # =======================================================================================================================
 
-java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -Xms3g -Xmx3g"
+java_cmd = "java -XX:SurvivorRatio=15 -Xms4g -Xmx4g"
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
 if DEBUG:
@@ -165,8 +165,8 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
 
     if common.ENV_EMULAB:
         # need to sync this sysConfig with other instances
-        sync_script = '/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh'
-        config_dir = '/users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs'
+        sync_script = '/users/martilo/libRamcastV3/bin/emulab/sync-code.sh'
+        config_dir = '/users/martilo/libRamcastV3/bin/systemConfigs'
         os.system("{}  {} {}".format(sync_script, config_dir, str(len(common.RDMA_NODES))))
         time.sleep(3)
 
@@ -203,11 +203,12 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     # dest_from += 1
 
     for cmd in cmds:
-        print cmd[0], cmd[1]
+        print(cmd[0], cmd[1])
         common.sshcmdbg(cmd[0], cmd[1])
 
     # start gatherer
-    cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    # cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    cmd = [java_cmd, common.CLASS_GATHERER, common.GATHERER_PORT, log_dir,
            "throughput", "client_overall", num_clients,
            "latency", "client_overall", 1,
            "latencydistribution", "client_overall", 1,
@@ -218,11 +219,11 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
 
     common.localcmd(common.APP_CLEANER)
     time.sleep(1)
-    print "===================================\n          Throughput              \n==================================="
+    print("===================================\n          Throughput              \n===================================")
     common.localcmd("cat " + log_dir + "/throughput_client_overall_aggregate.log")
-    print "===================================\n          Latency                 \n==================================="
+    print("===================================\n          Latency                 \n===================================")
     common.localcmd("cat " + log_dir + "/latency_client_overall_average.log")
-    print "==================================="
+    print("===================================")
 
 
 for i in range(0, NUM_RUNS):
