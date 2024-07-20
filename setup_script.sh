@@ -8,6 +8,11 @@ sudo apt-get install autoconf automake libtool -y
 
 cd ~
 
+sudo rm -rf libRamcastV3
+sudo rm -rf disni
+sudo rm -rf sense
+sudo rm -rf netwrapper
+
 if [ ! -d libRamcastV3 ]; then
   git clone https://github.com/martilo-usi/libRamcastV3.git
 fi
