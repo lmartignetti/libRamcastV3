@@ -260,18 +260,18 @@ public class BenchAgent {
       int payloadSize = RamcastConfig.SIZE_MESSAGE - RamcastMessage.calculateOverhead(destinationCount);
       if (destinationCount == 4) payloadSize -= 128;
       if (destinationCount == 8) payloadSize -= 230;
-      payloadSize = RamcastConfig.SIZE_MESSAGE;
+      // payloadSize = RamcastConfig.SIZE_MESSAGE;
 
       ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
       buffer.putInt(clientId);
       while (buffer.remaining() > 0) buffer.put((byte) 1);
 
       List<RamcastGroup> dest = new ArrayList<>();
-      int tempNumDestinations = randomGenerator.nextInt(10000);
-      if(tempNumDestinations > 8928) tempNumDestinations = 1;
-      else if( tempNumDestinations > 1056) tempNumDestinations = 2;
-      else tempNumDestinations = 3;
-      for (int i = 0; i < tempNumDestinations; i++) {
+      // int tempNumDestinations = randomGenerator.nextInt(10000);
+      // if(tempNumDestinations > 8928) tempNumDestinations = 1;
+      // else if( tempNumDestinations > 1056) tempNumDestinations = 2;
+      // else tempNumDestinations = 3;
+      for (int i = 0; i < destinationCount; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 

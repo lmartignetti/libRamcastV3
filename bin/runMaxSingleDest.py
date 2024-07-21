@@ -11,7 +11,7 @@ import common
 NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
-NUM_PROCESSES = 3
+NUM_PROCESSES = 2
 NUM_DEST = [1]
 NUM_CLIENT_PER_DESTINATION = [1]
 

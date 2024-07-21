@@ -1,6 +1,7 @@
 #!/bin/bash
 
 PROJECT_HOME=~/libRamcastV3
+BRANCH=emulab-cluster-tpcc
 
 cd $PROJECT_HOME
 
@@ -18,7 +19,7 @@ for ((i = 0; i < ${#remote_hostnames[@]}; i++)); do
   echo "Cleaning source code of node$id ($host)..."
 
   # Clean remote source code
-  ssh -o StrictHostKeyChecking=no $host "cd $PROJECT_HOME; git clean -f -d; git reset --hard; git pull" >/dev/null
+  ssh -o StrictHostKeyChecking=no $host "cd $PROJECT_HOME; git clean -f -d; git reset --hard; git pull; git checkout $BRANCH" >/dev/null
 
   for m in "${paths_modified[@]}"; do
     scp -o StrictHostKeyChecking=no "$m" "$host:$PROJECT_HOME/$m" >/dev/null
