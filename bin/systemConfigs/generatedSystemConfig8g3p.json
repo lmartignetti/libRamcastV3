@@ -151,19 +151,37 @@
         {
             "host": "node25", 
             "gid": 8, 
-            "port": 9001, 
+            "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node25", 
             "gid": 8, 
-            "port": 9002, 
+            "port": 9001, 
             "nid": 1
         }, 
         {
-            "host": "node25", 
+            "host": "node26", 
             "gid": 8, 
-            "port": 9003, 
+            "port": 9000, 
+            "nid": 2
+        }, 
+        {
+            "host": "node26", 
+            "gid": 9, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node27", 
+            "gid": 9, 
+            "port": 9000, 
+            "nid": 1
+        }, 
+        {
+            "host": "node27", 
+            "gid": 9, 
+            "port": 9001, 
             "nid": 2
         }
     ], 

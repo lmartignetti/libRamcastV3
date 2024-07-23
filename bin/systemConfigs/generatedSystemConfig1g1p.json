@@ -41,50 +41,8 @@
             "nid": 0
         }, 
         {
-            "host": "node7", 
+            "host": "node6", 
             "gid": 6, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node8", 
-            "gid": 7, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node9", 
-            "gid": 8, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node10", 
-            "gid": 9, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node11", 
-            "gid": 10, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node12", 
-            "gid": 11, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node13", 
-            "gid": 12, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node13", 
-            "gid": 13, 
             "port": 9001, 
             "nid": 0
         }

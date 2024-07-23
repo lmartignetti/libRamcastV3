@@ -266,13 +266,22 @@ public class BenchAgent {
       while (buffer.remaining() > 0) buffer.put((byte) 1);
 
       List<RamcastGroup> dest = new ArrayList<>();
-      int tempNumDestinations = randomGenerator.nextInt(1000000);
-      if(tempNumDestinations > 892557) tempNumDestinations = 1;
-      else if( tempNumDestinations > 106025) tempNumDestinations = 2;
-      else if( tempNumDestinations > 1403) tempNumDestinations = 3;
-      else tempNumDestinations = 4;
-      for (int i = 0; i < tempNumDestinations; i++) {
-      // for (int i = 0; i < destinationCount; i++) {
+      // int tempNumDestinations = randomGenerator.nextInt(1000000);
+      // 2 groups
+      // if(tempNumDestinations > 892589) tempNumDestinations = 1;
+      // else tempNumDestinations = 2;
+      // 4 groups
+      // if(tempNumDestinations > 892557) tempNumDestinations = 1;
+      // else if( tempNumDestinations > 106025) tempNumDestinations = 2;
+      // else if( tempNumDestinations > 1403) tempNumDestinations = 3;
+      // else tempNumDestinations = 4;
+      // 8 groups
+      // if(tempNumDestinations > 892845) tempNumDestinations = 1;
+      // else if( tempNumDestinations > 105379) tempNumDestinations = 2;
+      // else if( tempNumDestinations > 1725) tempNumDestinations = 3;
+      // else tempNumDestinations = 4;
+      // for (int i = 0; i < tempNumDestinations; i++) {
+      for (int i = 0; i < destinationCount; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 

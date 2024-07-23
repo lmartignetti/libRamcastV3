@@ -13,7 +13,7 @@ NUM_RUNS = 1
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
 NUM_DEST = [1, 2, 4, 8]
-NUM_DEST = [4]
+NUM_DEST = [8]
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 NUM_CLIENTS = [6]
 
@@ -22,7 +22,7 @@ NUM_CLIENTS = [6]
 # If g == 8: PACKAGE_SIZE = p + 82 + 4 * g + 230
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [256]
-PACKAGE_SIZE = [162+128]
+PACKAGE_SIZE = [408]
 
 DURATION = 60
 WARMUP = 20
