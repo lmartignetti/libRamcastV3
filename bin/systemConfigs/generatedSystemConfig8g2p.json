@@ -1,6 +1,6 @@
 {
     "maxinline": 64, 
-    "nodePerGroup": 3, 
+    "nodePerGroup": 2, 
     "servicetimeout": 1, 
     "zkHost": "192.168.3.9:2181", 
     "group_members": [
@@ -18,135 +18,123 @@
         }, 
         {
             "host": "node3", 
-            "gid": 0, 
+            "gid": 1, 
             "port": 9000, 
-            "nid": 2
+            "nid": 0
         }, 
         {
             "host": "node4", 
             "gid": 1, 
             "port": 9000, 
-            "nid": 0
+            "nid": 1
         }, 
         {
             "host": "node5", 
-            "gid": 1, 
+            "gid": 2, 
+            "port": 9000, 
+            "nid": 0
+        }, 
+        {
+            "host": "node6", 
+            "gid": 2, 
             "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node6", 
-            "gid": 1, 
-            "port": 9000, 
-            "nid": 2
-        }, 
-        {
             "host": "node7", 
-            "gid": 2, 
+            "gid": 3, 
             "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node8", 
-            "gid": 2, 
+            "gid": 3, 
             "port": 9000, 
             "nid": 1
         }, 
         {
             "host": "node9", 
-            "gid": 2, 
-            "port": 9000, 
-            "nid": 2
-        }, 
-        {
-            "host": "node10", 
-            "gid": 3, 
+            "gid": 4, 
             "port": 9000, 
             "nid": 0
         }, 
         {
-            "host": "node11", 
-            "gid": 3, 
+            "host": "node10", 
+            "gid": 4, 
             "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node12", 
-            "gid": 3, 
+            "host": "node11", 
+            "gid": 5, 
             "port": 9000, 
-            "nid": 2
+            "nid": 0
+        }, 
+        {
+            "host": "node12", 
+            "gid": 5, 
+            "port": 9000, 
+            "nid": 1
         }, 
         {
             "host": "node13", 
-            "gid": 4, 
+            "gid": 6, 
             "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node14", 
-            "gid": 4, 
+            "gid": 6, 
             "port": 9000, 
             "nid": 1
         }, 
         {
             "host": "node15", 
-            "gid": 4, 
-            "port": 9000, 
-            "nid": 2
-        }, 
-        {
-            "host": "node16", 
-            "gid": 5, 
+            "gid": 7, 
             "port": 9000, 
             "nid": 0
         }, 
         {
-            "host": "node17", 
-            "gid": 5, 
+            "host": "node16", 
+            "gid": 7, 
             "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node18", 
-            "gid": 5, 
+            "host": "node17", 
+            "gid": 8, 
             "port": 9000, 
-            "nid": 2
+            "nid": 0
+        }, 
+        {
+            "host": "node18", 
+            "gid": 8, 
+            "port": 9000, 
+            "nid": 1
         }, 
         {
             "host": "node19", 
-            "gid": 6, 
+            "gid": 9, 
             "port": 9000, 
             "nid": 0
         }, 
         {
             "host": "node20", 
-            "gid": 6, 
+            "gid": 9, 
             "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node21", 
-            "gid": 6, 
-            "port": 9000, 
-            "nid": 2
-        }, 
-        {
-            "host": "node22", 
-            "gid": 7, 
-            "port": 9000, 
+            "host": "node20", 
+            "gid": 10, 
+            "port": 9001, 
             "nid": 0
         }, 
         {
-            "host": "node23", 
-            "gid": 7, 
-            "port": 9000, 
+            "host": "node20", 
+            "gid": 10, 
+            "port": 9002, 
             "nid": 1
-        }, 
-        {
-            "host": "node24", 
-            "gid": 7, 
-            "port": 9000, 
-            "nid": 2
         }
     ], 
     "signalInterval": 4, 

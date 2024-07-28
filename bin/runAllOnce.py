@@ -10,9 +10,9 @@ import common
 
 # usage
 def usage():
-    print "usage: " \
+    print("usage: " \
           + common.sarg(0) \
-          + " group_count process_per_group destination_count client_per_destination duration warmup enable_debug enablee_profiling"
+          + " group_count process_per_group destination_count client_per_destination duration warmup enable_debug enablee_profiling")
     sys.exit(1)
 
 
@@ -26,7 +26,11 @@ CLIENT_PER_DESTINATION = common.iarg(4)
 
 DURATION = common.iarg(5)
 WARMUP = common.iarg(6)
-PAYLOAD_SIZE = 96  # 196
+
+# To have paylodad of p bytes, given the number of destinations g: PACKAGE_SIZE = p + 82 + 4 * g
+# If g == 4: PACKAGE_SIZE = p + 82 + 4 * g + 128
+# If g == 8: PACKAGE_SIZE = p + 82 + 4 * g + 230
+PAYLOAD_SIZE = 150  # 196
 
 # ******
 # whitecast method: send to separate groups of server, then agreegate all results
@@ -47,7 +51,7 @@ if WHITE_CAST:
 else:
     NUM_CLIENTS = CLIENT_PER_DESTINATION
 
-print "Use " + str(NUM_CLIENTS) + " clients"
+print("Use " + str(NUM_CLIENTS) + " clients")
 
 DELAY = False
 # RDMA config
@@ -70,7 +74,7 @@ CLASS_BENCH = "ch.usi.dslab.lel.ramcast.benchmark.BenchAgent"
 debug_log_dir = '{}/bin'.format(common.PATH_LIBRAMCAST_HOME)
 log_dir = '{}/logs/{}c-{}g-{}d-{}p-{}'.format(common.PATH_LIBRAMCAST_HOME, NUM_CLIENTS, NUM_GROUPS, DESTINATION_COUNT,
                                               NUM_PROCESSES, datetime.now().strftime('%Y-%m-%d-%H-%M-%S'))
-java_cmd = "java -XX:+UseConcMarkSweepGC -XX:SurvivorRatio=15 -XX:+UseParNewGC -Xms3g -Xmx3g"
+java_cmd = "java -XX:SurvivorRatio=15 -Xms3g -Xmx3g"
 
 if PROFILING:
     java_cmd = java_cmd + " -agentpath:" + common.PATH_PROFILING
@@ -208,20 +212,20 @@ def run():
                 break
 
     for cmd in cmds:
-        print cmd[0], cmd[1]
+        print(cmd[0], cmd[1])
         common.sshcmdbg(cmd[0], cmd[1])
 
     # start gatherer
-    cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
+    cmd = [java_cmd, common.CLASS_GATHERER, common.GATHERER_PORT, log_dir,
            "throughput", "client_overall", NUM_CLIENTS,
-           "latency", "client_overall", NUM_CLIENTS,
-           "latencydistribution", "client_overall", NUM_CLIENTS,
+           "latency", "client_overall", 1,
+           "latencydistribution", "client_overall", 1,
            ]
 
     # seperating client and servers
-    cmd = [java_cmd, common.CLASS_GATHERER, WARMUP * 1000, common.GATHERER_PORT, log_dir,
-           "throughput", "client_overall", NUM_CLIENTS,
-           ]
+    # cmd = [java_cmd, common.CLASS_GATHERER, common.GATHERER_PORT, log_dir,
+    #        "latency", "client_overall", NUM_CLIENTS,
+    #        ]
 
     cmdString = ' '.join([str(val) for val in cmd])
     common.localcmd(cmdString)
@@ -233,7 +237,7 @@ time.sleep(1)
 if common.ENV_EMULAB:
     # need to sync this sysConfig with other instances
     os.system(
-        "/users/lel/apps/libramcast/libRamcastV3/bin/emulab/sync-code.sh /users/lel/apps/libramcast/libRamcastV3/bin/systemConfigs " + str(
+        "/users/martilo/libRamcastV3/bin/emulab/sync-code.sh /users/martilo/libRamcastV3/bin/systemConfigs " + str(
             node_used + len(common.EMULAB_DEAD_NODES)))
     time.sleep(3)
 
@@ -241,8 +245,8 @@ run()
 
 common.localcmd(common.APP_CLEANER)
 time.sleep(1)
-print "===================================\n             Throughput                 \n==================================="
+print("===================================\n             Throughput                 \n===================================")
 common.localcmd("cat " + log_dir + "/throughput_client_overall_aggregate.log")
-print "===================================\n             Latency                    \n==================================="
+print("===================================\n             Latency                    \n===================================")
 common.localcmd("cat " + log_dir + "/latency_client_overall_average.log")
-print "==================================="
+print("===================================")

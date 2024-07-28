@@ -14,12 +14,12 @@ import common
 NUM_RUNS = 1
 NUM_GROUPS = [1, 2]
 NUM_GROUPS = [6]
-NUM_GROUPS = [4]
-NUM_PROCESSES = 3
+NUM_GROUPS = [8]
+NUM_PROCESSES = 1
 NUM_DEST = [2, 4, 6]
 NUM_DEST = [1]
-NUM_CLIENT_PER_DESTINATION = [5]
 NUM_CLIENT_PER_DESTINATION = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+NUM_CLIENT_PER_DESTINATION = [6]
 # else:
 #     NUM_RUNS = common.iarg(1)
 #     NUM_GROUPS = common.iarg(2)
@@ -33,7 +33,6 @@ WARMUP = 20
 PROFILING = True
 PROFILING = False
 DEBUG = False
-DEBUG = True
 
 # NUM_CLIENTS = NUM_DEST * NUM_CLIENT_PER_DESTINATION
 
@@ -50,7 +49,7 @@ def run():
                 experimentCmd = ' '.join([str(val) for val in
                                           ['python ./runAllOnce.py', g, NUM_PROCESSES, d, c, DURATION, WARMUP, DEBUG,
                                            PROFILING]])
-                print experimentCmd
+                print(experimentCmd)
                 common.localcmd(experimentCmd)
 
 

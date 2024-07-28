@@ -281,7 +281,8 @@ public class BenchAgent {
       // else if( tempNumDestinations > 1725) tempNumDestinations = 3;
       // else tempNumDestinations = 4;
       // for (int i = 0; i < tempNumDestinations; i++) {
-      for (int i = 0; i < destinationCount; i++) {
+      int numDest = 8;
+      for (int i = 0; i < numDest; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 

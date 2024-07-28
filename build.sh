@@ -9,24 +9,12 @@ config=$(jq '.' config.json)
 remote_ids=($(echo $config | jq -r '.remotes[] | "\(.id)"'))
 remote_hostnames=($(echo $config | jq -r '.remotes[] | "\(.hostname)"'))
 
-# Gather the list of files changed locally and upload changes
-paths_modified=($(git status --porcelain | awk '/M|\?\? /{print $2}'))
-paths_deleted=($(git status --porcelain | awk '/D/ {print $2}'))
-
+# Upload changes
 for ((i = 0; i < ${#remote_hostnames[@]}; i++)); do
   id=${remote_ids[i]}
   host=${remote_hostnames[i]}
   echo "Cleaning source code of node$id ($host)..."
-
-  # Clean remote source code
-  ssh -o StrictHostKeyChecking=no $host "cd $PROJECT_HOME; git clean -f -d; git reset --hard; git pull; git checkout $BRANCH" >/dev/null
-
-  for m in "${paths_modified[@]}"; do
-    scp -o StrictHostKeyChecking=no "$m" "$host:$PROJECT_HOME/$m" >/dev/null
-  done
-  for d in "${paths_deleted[@]}"; do
-    ssh -o StrictHostKeyChecking=no "$host" "cd $PROJECT_HOME; rm $d" >/dev/null
-  done
+  rsync -a --exclude='target' --exclude='logs' "$PROJECT_HOME" "$host:$PROJECT_HOME"
   echo "Cleaning source code of node$id done"
 done
 

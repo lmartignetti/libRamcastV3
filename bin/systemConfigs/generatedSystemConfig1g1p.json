@@ -9,42 +9,6 @@
             "gid": 0, 
             "port": 9000, 
             "nid": 0
-        }, 
-        {
-            "host": "node2", 
-            "gid": 1, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node3", 
-            "gid": 2, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node4", 
-            "gid": 3, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node5", 
-            "gid": 4, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node6", 
-            "gid": 5, 
-            "port": 9000, 
-            "nid": 0
-        }, 
-        {
-            "host": "node6", 
-            "gid": 6, 
-            "port": 9001, 
-            "nid": 0
         }
     ], 
     "signalInterval": 4, 
