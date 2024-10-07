@@ -19,4 +19,8 @@ bin/test.sh
 bin/emulab/setup-node.sh
 bin/emulab/libramcast-node-setup.tar.gz
 
+cl_manifest.xml
+config.json
+
+logs_setup_ssh/
 logs_setup/

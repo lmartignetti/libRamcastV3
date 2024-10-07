@@ -1,4 +1,21 @@
-# Install dependendecies
+# How to setup CloudLab
+
+Prepare a file `cl_manifest.xml` with the manifest of the network from the CloudLab experiment, then run the following command to generate the configuration file.
+```
+python3 cl_config.py
+```
+If needed, setup the ssh connections among the cluster nodes:
+```
+python3 setup_ssh.py
+```
+Then, install the needed libraries on all nodes and clone the repository on the first node:
+```
+./setup.sh
+```
+After setup is complete, connect through `ssh` to the first node and open the `TRAM` folder. You are now ready to build and run the experiments.
+
+
+# Install dependendencies
 
 libRamCastV3 is a Maven project, therefore you should have Java and Maven installed first.
 
