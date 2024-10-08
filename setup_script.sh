@@ -14,7 +14,7 @@ sudo rm -rf sense
 sudo rm -rf netwrapper
 
 if [ ! -d libRamcastV3 ]; then
-  git clone https://github.com/martilo-usi/libRamcastV3.git
+  git clone https://github.com/lmartignetti/libRamcastV3.git
 fi
 
 if [ ! -d disni ]; then

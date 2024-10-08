@@ -44,7 +44,7 @@ for i, node in enumerate(nodes[1:], start=1):
         login = services.find(f"{default_namespace}login")
         if login is not None:
             hostname = login.get("hostname")
-            iinterface = node.find(f"{default_namespace}interface")
+            interface = node.find(f"{default_namespace}interface")
             if interface is not None:
                 ip = interface.find(f"{default_namespace}ip")
                 if ip is not None:
