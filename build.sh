@@ -14,7 +14,7 @@ for ((i = 0; i < ${#remote_hostnames[@]}; i++)); do
   id=${remote_ids[i]}
   host=${remote_hostnames[i]}
   echo "Cleaning source code of node$id ($host)..."
-  rsync -a --delete --exclude='target' --exclude='logs' "$PROJECT_HOME" "$host:~"
+  rsync -a --delete --exclude='target' --exclude='logs' -e "ssh -o StrictHostKeyChecking=no" "$PROJECT_HOME" "$host:~"
   echo "Cleaning source code of node$id done"
 done
 

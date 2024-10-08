@@ -11,9 +11,11 @@ namespaces = {
     "emulab": "http://www.protogeni.net/resources/rspec/ext/emulab/1",
 }
 
+default_namespace="{http://www.geni.net/resources/rspec/3}"
+
 tree = ET.parse(INPUT)
 root = tree.getroot()
-nodes = root.findall("node", namespaces)
+nodes = root.findall(f"{default_namespace}node")
 
 DEAD_NODES.sort(reverse=True)
 for dead_node in DEAD_NODES:
@@ -23,22 +25,31 @@ data = {"local": None, "remotes": []}
 
 if nodes:
     local_node = nodes[0]
-    local_services = local_node.find("services", namespaces)
+    local_services = local_node.find(f"{default_namespace}services")
     if local_services is not None:
-        local_login = local_services.find("login", namespaces)
+        local_login = local_services.find(f"{default_namespace}login")
         if local_login is not None:
             local_hostname = local_login.get("hostname")
-            local_ip = local_node.find("interface/ip", namespaces).get("address")
-            data["local"] = {"id": 0, "hostname": local_hostname, "ip": local_ip}
+            
+            interface = local_node.find(f"{default_namespace}interface")
+            if interface is not None:
+                ip = interface.find(f"{default_namespace}ip")
+                if ip is not None:
+                    local_ip = ip.get("address")
+                    data["local"] = {"id": 0, "hostname": local_hostname, "ip": local_ip}
 
 for i, node in enumerate(nodes[1:], start=1):
-    services = node.find("services", namespaces)
+    services = node.find(f"{default_namespace}services")
     if services is not None:
-        login = services.find("login", namespaces)
+        login = services.find(f"{default_namespace}login")
         if login is not None:
             hostname = login.get("hostname")
-            ip = node.find("interface/ip", namespaces).get("address")
-            data["remotes"].append({"id": i, "hostname": hostname, "ip": ip})
+            iinterface = node.find(f"{default_namespace}interface")
+            if interface is not None:
+                ip = interface.find(f"{default_namespace}ip")
+                if ip is not None:
+                    remote_ip = ip.get("address")
+                    data["remotes"].append({"id": i, "hostname": hostname, "ip": remote_ip})
 
 with open(OUTPUT, "w") as file:
     json.dump(data, file, indent=4)
