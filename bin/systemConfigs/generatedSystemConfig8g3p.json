@@ -1,7 +1,7 @@
 {
     "maxinline": 64, 
     "nodePerGroup": 3, 
-    "servicetimeout": 1, 
+    "servicetimeout": 200, 
     "zkHost": "192.168.3.9:2181", 
     "group_members": [
         {
@@ -151,19 +151,19 @@
         {
             "host": "node26", 
             "gid": 8, 
-            "port": 9001, 
+            "port": 9000, 
             "nid": 0
         }, 
         {
-            "host": "node26", 
+            "host": "node27", 
             "gid": 8, 
-            "port": 9002, 
+            "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node26", 
+            "host": "node27", 
             "gid": 8, 
-            "port": 9003, 
+            "port": 9001, 
             "nid": 2
         }
     ], 

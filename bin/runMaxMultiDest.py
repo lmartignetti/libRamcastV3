@@ -12,7 +12,7 @@ NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
 NUM_PROCESSES = 3
-NUM_DEST = [2] # this is num groups
+NUM_DEST = [8] # this is num groups
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 NUM_CLIENTS = [3]
 DST_COUNT = 1
@@ -34,7 +34,7 @@ DEBUG = False
 # RDMA config
 CONF_QUEUE_LENGTH = 8
 CONF_NUM_PROCESSES = NUM_PROCESSES
-CONF_SERVICE_TIMEOUT = 1
+CONF_SERVICE_TIMEOUT = 200 # Increase timeout when number of groups increses (200 works with 8 groups, 3 clients)
 CONF_POLLING = True
 CONF_MAX_INLINE = 64
 CONF_PORT = 9000
