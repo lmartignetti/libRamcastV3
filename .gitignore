@@ -24,3 +24,5 @@ config.json
 
 logs_setup_ssh/
 logs_setup/
+
+bin/log

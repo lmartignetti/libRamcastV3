@@ -11,24 +11,23 @@ import common
 NUM_RUNS = 1
 # NUM_GROUPS = [3, 6, 11, 22]  # 1 bench group and 3 clients groups
 # NUM_GROUPS = [2]  # 1 bench group and 3 clients groups
-NUM_PROCESSES = 1
-NUM_DEST = [1, 2, 4, 8]
-NUM_DEST = [8]
+NUM_PROCESSES = 3
+NUM_DEST = [2] # this is num groups
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-NUM_CLIENTS = [6]
+NUM_CLIENTS = [3]
+DST_COUNT = 1
 
 # To have paylodad of p bytes, given the number of destinations g: PACKAGE_SIZE = p + 82 + 4 * g
 # If g == 4: PACKAGE_SIZE = p + 82 + 4 * g + 128
 # If g == 8: PACKAGE_SIZE = p + 82 + 4 * g + 230
 PACKAGE_SIZE = [98, 512, 1024, 16384, 32768, 65536]
 PACKAGE_SIZE = [256]
-PACKAGE_SIZE = [408]
+PACKAGE_SIZE = [64]
 
 DURATION = 60
 WARMUP = 20
 
 PROFILING = False
-DEBUG = True
 DELAY = False
 DEBUG = False
 
@@ -184,10 +183,10 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
                "-c", config_file, "-s", package_size,
                "-gid", g, "-nid", p, "-cid", i,
                "-d", DURATION, "-gh", common.GATHERER_HOST, "-gp", common.GATHERER_PORT, "-gd", log_dir, "-gw",
-               WARMUP * 1000]
+               WARMUP * 1000, "-dc", str(num_destinations), "-adc", str(DST_COUNT)]
         if p == num_process_per_group - 1 and g == 0:
             # the last process of the group will be client of that group for measuring latency
-            cmd += ["-df", "0", "-dc", str(num_destinations), "-isClient", "1"]
+            cmd += ["-df", "0", "-isClient", "1"]
             clients_used += 1
         cmdString = ' '.join([str(val) for val in cmd])
         cmds.append([available_nodes[i]["host"], cmdString])
@@ -201,11 +200,13 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     dest_from = 0
 
     for k in range(0, num_clients - clients_used):  # already provide 1 client in the group
+        dest_from = (dest_from + 1) % num_destinations
         cmds[i][1] = cmds[i][1] + ' ' + ' '.join(["-df", str(dest_from), "-dc", str(num_destinations), "-isClient", "1"])
         i += 1
     # dest_from += 1
 
     for cmd in cmds:
+        print("")
         print(cmd[0], cmd[1])
         common.sshcmdbg(cmd[0], cmd[1])
 

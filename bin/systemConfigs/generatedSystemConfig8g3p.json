@@ -29,123 +29,141 @@
             "nid": 0
         }, 
         {
-            "host": "node5", 
+            "host": "node6", 
             "gid": 1, 
             "port": 9000, 
             "nid": 1
         }, 
         {
-            "host": "node6", 
+            "host": "node7", 
             "gid": 1, 
             "port": 9000, 
             "nid": 2
-        }, 
-        {
-            "host": "node7", 
-            "gid": 2, 
-            "port": 9000, 
-            "nid": 0
         }, 
         {
             "host": "node8", 
             "gid": 2, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node9", 
             "gid": 2, 
             "port": 9000, 
-            "nid": 2
+            "nid": 1
         }, 
         {
             "host": "node10", 
-            "gid": 3, 
+            "gid": 2, 
             "port": 9000, 
-            "nid": 0
+            "nid": 2
         }, 
         {
             "host": "node11", 
             "gid": 3, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node12", 
             "gid": 3, 
             "port": 9000, 
-            "nid": 2
+            "nid": 1
         }, 
         {
             "host": "node13", 
-            "gid": 4, 
+            "gid": 3, 
             "port": 9000, 
-            "nid": 0
+            "nid": 2
         }, 
         {
             "host": "node14", 
             "gid": 4, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node15", 
             "gid": 4, 
             "port": 9000, 
-            "nid": 2
+            "nid": 1
         }, 
         {
             "host": "node16", 
-            "gid": 5, 
+            "gid": 4, 
             "port": 9000, 
-            "nid": 0
+            "nid": 2
         }, 
         {
             "host": "node17", 
             "gid": 5, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node18", 
             "gid": 5, 
             "port": 9000, 
-            "nid": 2
+            "nid": 1
         }, 
         {
             "host": "node19", 
-            "gid": 6, 
+            "gid": 5, 
             "port": 9000, 
-            "nid": 0
+            "nid": 2
         }, 
         {
             "host": "node20", 
             "gid": 6, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node21", 
             "gid": 6, 
             "port": 9000, 
-            "nid": 2
+            "nid": 1
         }, 
         {
             "host": "node22", 
-            "gid": 7, 
+            "gid": 6, 
             "port": 9000, 
-            "nid": 0
+            "nid": 2
         }, 
         {
             "host": "node23", 
             "gid": 7, 
             "port": 9000, 
-            "nid": 1
+            "nid": 0
         }, 
         {
             "host": "node24", 
             "gid": 7, 
             "port": 9000, 
+            "nid": 1
+        }, 
+        {
+            "host": "node25", 
+            "gid": 7, 
+            "port": 9000, 
+            "nid": 2
+        }, 
+        {
+            "host": "node26", 
+            "gid": 8, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node26", 
+            "gid": 8, 
+            "port": 9002, 
+            "nid": 1
+        }, 
+        {
+            "host": "node26", 
+            "gid": 8, 
+            "port": 9003, 
             "nid": 2
         }
     ], 

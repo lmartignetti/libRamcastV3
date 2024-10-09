@@ -21,11 +21,29 @@
             "gid": 0, 
             "port": 9000, 
             "nid": 2
+        }, 
+        {
+            "host": "node4", 
+            "gid": 1, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node4", 
+            "gid": 1, 
+            "port": 9002, 
+            "nid": 1
+        }, 
+        {
+            "host": "node4", 
+            "gid": 1, 
+            "port": 9003, 
+            "nid": 2
         }
     ], 
     "signalInterval": 4, 
     "queueLength": 8, 
     "delay": false, 
     "polling": true, 
-    "debug": true
+    "debug": false
 }

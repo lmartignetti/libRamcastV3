@@ -56,6 +56,7 @@ public class BenchAgent {
   private boolean isClient;
   private int destinationFrom;
   private int destinationCount;
+  private int actualDestinationCount; // destinationCount is actually the number of groups
   private long startTime;
 
   private boolean isRunning = true;
@@ -107,7 +108,9 @@ public class BenchAgent {
     Option durationOption = Option.builder("d").required().desc("benchmark duration").hasArg().build();
     Option destinationFromOption = Option.builder("df").desc("destination from group (include)").hasArg().build();
     Option destinationCountOption = Option.builder("dc").desc("destination count").hasArg().build();
+    Option actualDestinationCountOption = Option.builder("adc").desc("actual destination count").hasArg().build();
     Option isClientOption = Option.builder("isClient").desc("is client").hasArg().build();
+    
 
     Options options = new Options();
     options.addOption(nIdOption);
@@ -121,6 +124,7 @@ public class BenchAgent {
     options.addOption(durationOption);
     options.addOption(destinationFromOption);
     options.addOption(destinationCountOption);
+    options.addOption(actualDestinationCountOption);
     options.addOption(gathererDirectoryOption);
     options.addOption(isClientOption);
 
@@ -139,8 +143,10 @@ public class BenchAgent {
     int warmUpTime = Integer.parseInt(line.getOptionValue(warmUpTimeOption.getOpt()));
     destinationFrom = line.getOptionValue(destinationFromOption.getOpt()) != null ? Integer.parseInt(line.getOptionValue(destinationFromOption.getOpt())) : 0;
     destinationCount = line.getOptionValue(destinationCountOption.getOpt()) != null ? Integer.parseInt(line.getOptionValue(destinationCountOption.getOpt())) : 0;
+    actualDestinationCount = line.getOptionValue(actualDestinationCountOption.getOpt()) != null ? Integer.parseInt(line.getOptionValue(actualDestinationCountOption.getOpt())) : 0;
     isClient = line.getOptionValue(isClientOption.getOpt()) != null && Integer.parseInt(line.getOptionValue(isClientOption.getOpt())) == 1;
 
+    payloadSize = payloadSize + RamcastMessage.calculateOverhead(destinationCount);
     RamcastConfig.SIZE_MESSAGE = payloadSize;
     config = RamcastConfig.getInstance();
     config.loadConfig(configFile);
@@ -149,7 +155,7 @@ public class BenchAgent {
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
     boolean callbackMonitored = false;
-    if (groupId >= destinationFrom && groupId < destinationFrom + destinationCount) callbackMonitored = true;
+    if (groupId >= destinationFrom && groupId < destinationFrom + actualDestinationCount) callbackMonitored = true;
 
     DataGatherer.configure(experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
 //    this.tpMonitorServer = new ThroughputPassiveMonitor(this.clientId, "server_overall", true);
@@ -258,8 +264,8 @@ public class BenchAgent {
     if (isClient) {
       sendPermits = new Semaphore(1);
       int payloadSize = RamcastConfig.SIZE_MESSAGE - RamcastMessage.calculateOverhead(destinationCount);
-      if (destinationCount == 4) payloadSize -= 128;
-      if (destinationCount == 8) payloadSize -= 230;
+      // if (destinationCount == 4) payloadSize -= 128;
+      // if (destinationCount == 8) payloadSize -= 230;
 
       ByteBuffer buffer = ByteBuffer.allocateDirect(payloadSize);
       buffer.putInt(clientId);
@@ -281,8 +287,8 @@ public class BenchAgent {
       // else if( tempNumDestinations > 1725) tempNumDestinations = 3;
       // else tempNumDestinations = 4;
       // for (int i = 0; i < tempNumDestinations; i++) {
-      int numDest = 8;
-      for (int i = 0; i < numDest; i++) {
+
+      for (int i = 0; i < actualDestinationCount; i++) {
         dest.add(RamcastGroup.getGroup(destinationFrom + i));
       }
 

@@ -16,8 +16,8 @@ def get_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
-DEAD_NODES = [2, 7]
-EMULAB_DEAD_NODES = []
+DEAD_NODES = [] # local cluster
+EMULAB_DEAD_NODES = [5] # Cloudlab
 
 ENV_CLUSTER = False
 ENV_EMULAB = False
