@@ -1,7 +1,7 @@
 {
     "maxinline": 64, 
     "nodePerGroup": 3, 
-    "servicetimeout": 200, 
+    "servicetimeout": 10000000, 
     "zkHost": "192.168.3.9:2181", 
     "group_members": [
         {
@@ -155,15 +155,231 @@
             "nid": 0
         }, 
         {
-            "host": "node27", 
+            "host": "node26", 
             "gid": 8, 
+            "port": 9001, 
+            "nid": 1
+        }, 
+        {
+            "host": "node26", 
+            "gid": 8, 
+            "port": 9002, 
+            "nid": 2
+        }, 
+        {
+            "host": "node26", 
+            "gid": 9, 
+            "port": 9003, 
+            "nid": 0
+        }, 
+        {
+            "host": "node27", 
+            "gid": 9, 
             "port": 9000, 
             "nid": 1
         }, 
         {
             "host": "node27", 
-            "gid": 8, 
+            "gid": 9, 
             "port": 9001, 
+            "nid": 2
+        }, 
+        {
+            "host": "node27", 
+            "gid": 10, 
+            "port": 9002, 
+            "nid": 0
+        }, 
+        {
+            "host": "node27", 
+            "gid": 10, 
+            "port": 9003, 
+            "nid": 1
+        }, 
+        {
+            "host": "node28", 
+            "gid": 10, 
+            "port": 9000, 
+            "nid": 2
+        }, 
+        {
+            "host": "node28", 
+            "gid": 11, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node28", 
+            "gid": 11, 
+            "port": 9002, 
+            "nid": 1
+        }, 
+        {
+            "host": "node28", 
+            "gid": 11, 
+            "port": 9003, 
+            "nid": 2
+        }, 
+        {
+            "host": "node29", 
+            "gid": 12, 
+            "port": 9000, 
+            "nid": 0
+        }, 
+        {
+            "host": "node29", 
+            "gid": 12, 
+            "port": 9001, 
+            "nid": 1
+        }, 
+        {
+            "host": "node29", 
+            "gid": 12, 
+            "port": 9002, 
+            "nid": 2
+        }, 
+        {
+            "host": "node29", 
+            "gid": 13, 
+            "port": 9003, 
+            "nid": 0
+        }, 
+        {
+            "host": "node30", 
+            "gid": 13, 
+            "port": 9000, 
+            "nid": 1
+        }, 
+        {
+            "host": "node30", 
+            "gid": 13, 
+            "port": 9001, 
+            "nid": 2
+        }, 
+        {
+            "host": "node30", 
+            "gid": 14, 
+            "port": 9002, 
+            "nid": 0
+        }, 
+        {
+            "host": "node30", 
+            "gid": 14, 
+            "port": 9003, 
+            "nid": 1
+        }, 
+        {
+            "host": "node31", 
+            "gid": 14, 
+            "port": 9000, 
+            "nid": 2
+        }, 
+        {
+            "host": "node31", 
+            "gid": 15, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node31", 
+            "gid": 15, 
+            "port": 9002, 
+            "nid": 1
+        }, 
+        {
+            "host": "node31", 
+            "gid": 15, 
+            "port": 9003, 
+            "nid": 2
+        }, 
+        {
+            "host": "node32", 
+            "gid": 16, 
+            "port": 9000, 
+            "nid": 0
+        }, 
+        {
+            "host": "node32", 
+            "gid": 16, 
+            "port": 9001, 
+            "nid": 1
+        }, 
+        {
+            "host": "node32", 
+            "gid": 16, 
+            "port": 9002, 
+            "nid": 2
+        }, 
+        {
+            "host": "node32", 
+            "gid": 17, 
+            "port": 9003, 
+            "nid": 0
+        }, 
+        {
+            "host": "node33", 
+            "gid": 17, 
+            "port": 9000, 
+            "nid": 1
+        }, 
+        {
+            "host": "node33", 
+            "gid": 17, 
+            "port": 9001, 
+            "nid": 2
+        }, 
+        {
+            "host": "node33", 
+            "gid": 18, 
+            "port": 9002, 
+            "nid": 0
+        }, 
+        {
+            "host": "node33", 
+            "gid": 18, 
+            "port": 9003, 
+            "nid": 1
+        }, 
+        {
+            "host": "node34", 
+            "gid": 18, 
+            "port": 9000, 
+            "nid": 2
+        }, 
+        {
+            "host": "node34", 
+            "gid": 19, 
+            "port": 9001, 
+            "nid": 0
+        }, 
+        {
+            "host": "node34", 
+            "gid": 19, 
+            "port": 9002, 
+            "nid": 1
+        }, 
+        {
+            "host": "node34", 
+            "gid": 19, 
+            "port": 9003, 
+            "nid": 2
+        }, 
+        {
+            "host": "node34", 
+            "gid": 20, 
+            "port": 9004, 
+            "nid": 0
+        }, 
+        {
+            "host": "node34", 
+            "gid": 20, 
+            "port": 9005, 
+            "nid": 1
+        }, 
+        {
+            "host": "node34", 
+            "gid": 20, 
+            "port": 9006, 
             "nid": 2
         }
     ], 

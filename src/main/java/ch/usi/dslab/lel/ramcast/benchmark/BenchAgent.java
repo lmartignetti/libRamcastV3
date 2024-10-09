@@ -155,7 +155,7 @@ public class BenchAgent {
     this.agent = new RamcastAgent(groupId, nodeId, onDeliverAmcast);
 
     boolean callbackMonitored = false;
-    if (groupId >= destinationFrom && groupId < destinationFrom + actualDestinationCount) callbackMonitored = true;
+    if (groupId == 0 && nodeId == config.getNodePerGroup() - 1) callbackMonitored = true;
 
     DataGatherer.configure(experimentDuration, fileDirectory, gathererHost, gathererPort, warmUpTime);
 //    this.tpMonitorServer = new ThroughputPassiveMonitor(this.clientId, "server_overall", true);
@@ -289,7 +289,7 @@ public class BenchAgent {
       // for (int i = 0; i < tempNumDestinations; i++) {
 
       for (int i = 0; i < actualDestinationCount; i++) {
-        dest.add(RamcastGroup.getGroup(destinationFrom + i));
+        dest.add(RamcastGroup.getGroup((destinationFrom + i) % destinationCount));
       }
 
       RamcastMessage sampleMessage = this.agent.createMessage(0, buffer, dest);

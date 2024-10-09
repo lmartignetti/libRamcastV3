@@ -14,7 +14,7 @@ NUM_RUNS = 1
 NUM_PROCESSES = 3
 NUM_DEST = [8] # this is num groups
 NUM_CLIENTS = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-NUM_CLIENTS = [3]
+NUM_CLIENTS = [37] # Change the number of clients: you you get a NullPointerException, just try a different number here (or try to build again... seems to do)
 DST_COUNT = 1
 
 # To have paylodad of p bytes, given the number of destinations g: PACKAGE_SIZE = p + 82 + 4 * g
@@ -34,7 +34,9 @@ DEBUG = False
 # RDMA config
 CONF_QUEUE_LENGTH = 8
 CONF_NUM_PROCESSES = NUM_PROCESSES
-CONF_SERVICE_TIMEOUT = 200 # Increase timeout when number of groups increses (200 works with 8 groups, 3 clients)
+CONF_SERVICE_TIMEOUT = 10000000 # Increase timeout when number of groups increses 
+# (8g3c:200, 8g7c:10000, 8g9c:30000, 8g11c:100000, 8g13c:1000000, 8g20c:10000000, 8g30c:10000000)
+# Safe value seems: 10000000
 CONF_POLLING = True
 CONF_MAX_INLINE = 64
 CONF_PORT = 9000
@@ -200,7 +202,7 @@ def orchestra(num_destinations, num_clients, num_process_per_group, package_size
     dest_from = 0
 
     for k in range(0, num_clients - clients_used):  # already provide 1 client in the group
-        dest_from = (dest_from + 1) % num_destinations
+        dest_from = (dest_from + 1) % (num_destinations)
         cmds[i][1] = cmds[i][1] + ' ' + ' '.join(["-df", str(dest_from), "-dc", str(num_destinations), "-isClient", "1"])
         i += 1
     # dest_from += 1
